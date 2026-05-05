@@ -29,7 +29,7 @@ from political_analyzer import generate_political_analysis
 from pptx_builder import create_aapp_pptx
 from relevance_scorer import score_news, select_relevant_news
 from report_contract import build_report_contract, validate_report_contract
-from send_gmail import send_email_with_attachments
+from send_email import send_email_with_attachments
 from utils import parse_bool, read_json, write_json
 
 logger = logging.getLogger(__name__)
