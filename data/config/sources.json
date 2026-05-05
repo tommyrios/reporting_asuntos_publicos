@@ -1,0 +1,51 @@
+{
+  "google_news": {
+    "enabled": true,
+    "locale": {
+      "hl": "es-419",
+      "gl": "AR",
+      "ceid": "AR:es-419"
+    },
+    "queries": [
+      "Argentina gobierno Congreso economia bancos",
+      "Argentina BCRA bancos sistema financiero regulacion",
+      "Argentina CNV mercado capitales bancos",
+      "Argentina politica economica presupuesto Congreso",
+      "Argentina impuestos ARCA sector financiero",
+      "Argentina reforma laboral Congreso sindicatos bancos",
+      "Argentina gobernadores Casa Rosada reformas economicas"
+    ]
+  },
+  "gdelt": {
+    "enabled": true,
+    "max_records_per_query": 25,
+    "queries": [
+      "(Argentina OR argentino) (gobierno OR Congreso OR Senado OR Diputados) (economia OR reforma OR presupuesto)",
+      "(Argentina OR argentino) (BCRA OR CNV OR bancos OR financiero OR fintech)",
+      "(Argentina OR argentino) (impuestos OR ARCA OR regulacion OR normativa) (empresas OR bancos)"
+    ]
+  },
+  "rss_feeds": [
+    {
+      "name": "Fuentes institucionales - agregar RSS validado",
+      "url": "",
+      "enabled": false,
+      "category": "institucional"
+    }
+  ],
+  "priority_domains": [
+    "argentina.gob.ar",
+    "boletinoficial.gob.ar",
+    "bcra.gob.ar",
+    "cnv.gov.ar",
+    "diputados.gob.ar",
+    "senado.gob.ar"
+  ],
+  "deduplication": {
+    "title_similarity_threshold": 0.88
+  },
+  "selection": {
+    "max_selected_news": 12,
+    "min_relevance_score": 20
+  }
+}
