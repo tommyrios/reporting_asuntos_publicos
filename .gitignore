@@ -12,3 +12,4 @@ data/normalized_news/*
 !data/normalized_news/.gitkeep
 data/selected_news/*
 !data/selected_news/.gitkeep
+secrets.txt

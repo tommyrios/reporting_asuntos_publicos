@@ -1,6 +1,9 @@
 {
   "google_news": {
     "enabled": true,
+    "request_delay_seconds": 0.4,
+    "max_retries": 1,
+    "backoff_seconds": 1.5,
     "locale": {
       "hl": "es-419",
       "gl": "AR",
@@ -18,7 +21,10 @@
   },
   "gdelt": {
     "enabled": true,
-    "max_records_per_query": 25,
+    "max_records_per_query": 12,
+    "request_delay_seconds": 2.5,
+    "max_retries": 2,
+    "backoff_seconds": 3.0,
     "queries": [
       "(Argentina OR argentino) (gobierno OR Congreso OR Senado OR Diputados) (economia OR reforma OR presupuesto)",
       "(Argentina OR argentino) (BCRA OR CNV OR bancos OR financiero OR fintech)",
@@ -30,7 +36,10 @@
       "name": "Fuentes institucionales - agregar RSS validado",
       "url": "",
       "enabled": false,
-      "category": "institucional"
+      "category": "institucional",
+      "request_delay_seconds": 0.5,
+      "max_retries": 1,
+      "backoff_seconds": 1.5
     }
   ],
   "priority_domains": [

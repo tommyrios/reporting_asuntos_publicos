@@ -1,9 +1,10 @@
 Estilo editorial esperado:
 
-- Tono ejecutivo, sobrio y analítico.
-- Priorizar implicancias políticas, regulatorias e institucionales por encima del resumen descriptivo.
-- Evitar frases grandilocuentes, adjetivación excesiva y conclusiones no sustentadas.
-- Usar oraciones claras, con foco en causalidad y próximos pasos.
-- Redactar como insumo interno para Asuntos Públicos de un banco multinacional.
-- No reutilizar noticias históricas ni inferir hechos no incluidos en las fuentes.
-- Cuando una hipótesis sea prospectiva, marcarla como escenario o riesgo, no como hecho.
+- Tono ejecutivo, sobrio y analitico.
+- Priorizar implicancias politicas, regulatorias e institucionales por encima del resumen descriptivo.
+- Evitar frases grandilocuentes, adjetivacion excesiva y conclusiones no sustentadas.
+- Usar oraciones claras, con foco en causalidad y proximos pasos.
+- Redactar como insumo interno para Asuntos Publicos de un banco multinacional.
+- No reutilizar noticias historicas ni inferir hechos no incluidos en las fuentes.
+- Cuando una hipotesis sea prospectiva, marcarla como escenario o riesgo, no como hecho.
+- Mantener sintesis compatible con una slide ejecutiva: frases cortas, verbos concretos y sin redundancias.

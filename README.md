@@ -2,13 +2,22 @@
 
 Pipeline para generar un **borrador quincenal editable** del informe de contexto político de Asuntos Públicos.
 
-El output principal es un **PPTX de 3 slides**:
+El output principal es un **PPTX editable de 3 slides**, adaptado a la identidad corporativa BBVA:
 
 1. Portada BBVA.
 2. Análisis ejecutivo de coyuntura.
 3. Contraportada BBVA.
 
 El objetivo no es reemplazar el criterio editorial del equipo, sino entregar un primer insumo ordenado para revisión, edición y ajuste de foco.
+
+
+## Version 1.1 - Ajustes incorporados
+
+- Estilo visual alineado a la plantilla corporativa BBVA: Electric Blue, Serene Blue, Sand, Source Serif 4 para titulares y Lato para cuerpo.
+- Layout ejecutivo con portada oscura, slide de analisis en fondo Sand y tarjetas tipo bento editables.
+- Control de extension para evitar texto cortado en PPTX.
+- GDELT con menor carga por corrida, pausas entre requests y retry con backoff para reducir errores 429.
+- Prompts mas restrictivos para bullets breves y vision ejecutiva compatible con una sola slide.
 
 ## Flujo funcional
 
@@ -35,7 +44,7 @@ send_gmail.py
 - Python 3.11+
 - GitHub Actions para ejecución programada
 - Gemini API para síntesis y visión ejecutiva
-- Google News RSS / GDELT / RSS institucionales para ingesta
+- Google News RSS / GDELT con backoff / RSS institucionales para ingesta
 - Gmail API para envío
 - python-pptx para generación del PPTX
 
