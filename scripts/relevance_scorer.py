@@ -6,27 +6,9 @@ from typing import Iterable
 from news_models import NewsItem
 from utils import normalize_text, parse_datetime
 
+# Scoring orientado a actualidad política. Se mantiene el tópico financiero como contexto,
+# pero con menor peso para que no domine la selección.
 TOPIC_KEYWORDS: dict[str, list[str]] = {
-    "regulatorio_financiero": [
-        "bcra",
-        "banco central",
-        "cnv",
-        "uif",
-        "bancos",
-        "sistema financiero",
-        "fintech",
-        "credito",
-        "crédito",
-        "tarjetas",
-        "depositos",
-        "depósitos",
-        "tasas",
-        "encajes",
-        "mercado de capitales",
-        "normativa",
-        "regulacion",
-        "regulación",
-    ],
     "politica_gobernabilidad": [
         "gobierno",
         "casa rosada",
@@ -39,6 +21,15 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "alianzas",
         "acuerdo político",
         "bloques",
+        "coalicion",
+        "coalición",
+        "oficialismo",
+        "peronismo",
+        "kirchnerismo",
+        "ucr",
+        "pro",
+        "libertad avanza",
+        "lla",
     ],
     "congreso": [
         "congreso",
@@ -52,6 +43,42 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "dictamen",
         "quorum",
         "quórum",
+        "media sanción",
+        "sanción",
+        "bloque",
+        "interbloque",
+    ],
+    "provincias": [
+        "gobernador",
+        "gobernadores",
+        "provincias",
+        "mandatarios provinciales",
+        "coparticipación",
+        "coparticipacion",
+        "pacto fiscal",
+        "liga de gobernadores",
+    ],
+    "elecciones": [
+        "elecciones",
+        "campaña",
+        "candidato",
+        "candidata",
+        "encuesta",
+        "voto",
+        "electoral",
+        "comicios",
+    ],
+    "laboral_social": [
+        "sindicatos",
+        "gremios",
+        "paritarias",
+        "huelga",
+        "conflicto social",
+        "movilización",
+        "movilizacion",
+        "protesta",
+        "cgt",
+        "cta",
     ],
     "economia_macro": [
         "economia",
@@ -79,44 +106,51 @@ TOPIC_KEYWORDS: dict[str, list[str]] = {
         "blanqueo",
         "moratoria",
     ],
-    "laboral_social": [
-        "reforma laboral",
-        "sindicatos",
-        "paritarias",
-        "huelga",
-        "conflicto social",
-        "empleo",
-        "indemnizaciones",
-        "salarios",
+    "regulatorio_financiero": [
+        "bcra",
+        "banco central",
+        "cnv",
+        "uif",
+        "bancos",
+        "sistema financiero",
+        "fintech",
+        "credito",
+        "crédito",
+        "tasas",
+        "mercado de capitales",
+        "normativa",
+        "regulacion",
+        "regulación",
     ],
 }
 
 ACTOR_KEYWORDS: dict[str, list[str]] = {
-    "Poder Ejecutivo": ["gobierno", "casa rosada", "presidente", "gabinete", "ministerio"],
-    "Congreso": ["congreso", "senado", "diputados", "comisión", "comision", "bloques"],
+    "Poder Ejecutivo": ["gobierno", "casa rosada", "presidente", "gabinete", "ministerio", "jefatura de gabinete"],
+    "Congreso": ["congreso", "senado", "diputados", "comisión", "comision", "bloques", "dictamen", "quórum", "quorum"],
+    "Provincias": ["gobernadores", "gobernador", "provincias", "mandatarios provinciales"],
+    "Oposición": ["oposición", "oposicion", "bloques opositores", "peronismo", "ucr", "pro", "kirchnerismo"],
+    "Oficialismo": ["oficialismo", "la libertad avanza", "lla", "bloque libertario"],
+    "Sindicatos": ["sindicatos", "gremios", "paritarias", "huelga", "cgt", "cta"],
     "Reguladores": ["bcra", "banco central", "cnv", "uif", "arca"],
-    "Provincias": ["gobernadores", "provincias", "mandatarios provinciales"],
-    "Oposición": ["oposición", "oposicion", "bloques opositores", "peronismo", "ucr", "pro"],
-    "Sector financiero": ["bancos", "fintech", "sistema financiero", "mercado de capitales"],
-    "Sindicatos": ["sindicatos", "gremios", "paritarias", "huelga"],
 }
 
 SOURCE_BONUS_DOMAINS = [
     "argentina.gob.ar",
     "boletinoficial.gob.ar",
-    "bcra.gob.ar",
-    "cnv.gov.ar",
     "diputados.gob.ar",
     "senado.gob.ar",
+    "casarosada.gob.ar",
 ]
 
 TOPIC_WEIGHTS = {
-    "regulatorio_financiero": 35,
-    "congreso": 25,
-    "politica_gobernabilidad": 22,
-    "economia_macro": 18,
-    "fiscal_tributario": 18,
-    "laboral_social": 14,
+    "politica_gobernabilidad": 36,
+    "congreso": 34,
+    "provincias": 28,
+    "elecciones": 24,
+    "laboral_social": 20,
+    "economia_macro": 14,
+    "fiscal_tributario": 12,
+    "regulatorio_financiero": 8,
 }
 
 
@@ -169,13 +203,16 @@ def _source_bonus(item: NewsItem) -> int:
 
 
 def bbva_relevance(item: NewsItem, topics: list[str]) -> str:
-    if "regulatorio_financiero" in topics:
-        return "Alta: posible impacto directo o indirecto sobre sistema financiero, regulación o dinámica bancaria."
-    if "fiscal_tributario" in topics or "economia_macro" in topics:
-        return "Media: tema macro/fiscal con impacto potencial en expectativas, actividad o agenda empresarial."
-    if "congreso" in topics or "politica_gobernabilidad" in topics:
-        return "Media: tema político relevante para seguimiento institucional y escenarios regulatorios."
-    return "Baja: relevancia contextual, sin impacto directo identificado."
+    # Nombre de campo heredado. El contenido se usa como lectura política, no comercial.
+    if "politica_gobernabilidad" in topics or "congreso" in topics:
+        return "Alta: tema central para lectura de gobernabilidad, acuerdos y agenda legislativa."
+    if "provincias" in topics or "elecciones" in topics:
+        return "Media: tema relevante para seguimiento territorial y dinámica de actores políticos."
+    if "laboral_social" in topics:
+        return "Media: tema relevante para monitoreo de conflictividad y reacción social."
+    if "economia_macro" in topics or "fiscal_tributario" in topics:
+        return "Media: tema económico con impacto político sobre prioridades de gobierno y Congreso."
+    return "Baja: relevancia contextual, sin centralidad política identificada."
 
 
 def score_news_item(item: NewsItem, reference: datetime | None = None) -> NewsItem:
@@ -209,7 +246,7 @@ def score_news(items: Iterable[NewsItem], reference: datetime | None = None) -> 
 
 def select_relevant_news(
     items: Iterable[NewsItem],
-    max_items: int = 12,
+    max_items: int = 4,
     min_score: int = 20,
 ) -> list[NewsItem]:
     selected: list[NewsItem] = []

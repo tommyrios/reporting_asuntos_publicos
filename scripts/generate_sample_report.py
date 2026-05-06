@@ -32,7 +32,7 @@ def main() -> None:
     items = news_from_dicts(payload)
     unique, duplicates = deduplicate_news(items)
     scored = score_news(unique, reference=end)
-    selected = select_relevant_news(scored, max_items=5, min_score=1)
+    selected = select_relevant_news(scored, max_items=4, min_score=1)
     analysis = generate_political_analysis(selected, period=period, disable_gemini=True)
     stats = {
         "raw_news_count": len(items),

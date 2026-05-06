@@ -15,11 +15,9 @@ from config import (
     BBVA_BLUE,
     BBVA_DARK_TEXT,
     BBVA_GREY_4,
-    BBVA_ICE,
+    BBVA_GREY_2,
     BBVA_LIME,
-    BBVA_MANDARIN,
     BBVA_MIDNIGHT,
-    BBVA_PURPLE,
     BBVA_SAND,
     BBVA_SERENE_BLUE,
     BBVA_WHITE,
@@ -35,13 +33,13 @@ EMOJI_POLITICO = BRAND_DIR / "emoji_politico.png"
 SLIDE_W = 13.333
 SLIDE_H = 7.5
 
-# Limits are sentence-safe. They never add ellipsis, so text does not look unfinished.
 TEXT_LIMITS = {
     "headline": 86,
-    "executive_vision": 880,
-    "key_developments": 125,
-    "bbva_implications": 118,
-    "watchlist": 112,
+    "executive_vision": 430,
+    "news_title": 82,
+    "news_summary": 190,
+    "news_meta": 68,
+    "watchlist": 105,
 }
 
 
@@ -80,7 +78,7 @@ def _add_logo(slide, color: str, x: float, y: float, width: float) -> None:
     p = tb.text_frame.paragraphs[0]
     run = p.add_run()
     run.text = "BBVA"
-    _set_font(run, BODY_FONT, 22, BBVA_WHITE if color == "white" else BBVA_BLUE, bold=True)
+    _set_font(run, BODY_FONT, 20, BBVA_WHITE if color == "white" else BBVA_BLUE, bold=True)
 
 
 def _add_textbox(
@@ -133,11 +131,11 @@ def _add_round_rect(
     shape.fill.solid()
     shape.fill.fore_color.rgb = _rgb(fill)
     shape.line.color.rgb = _rgb(line or fill)
-    shape.line.width = Pt(0.75)
+    shape.line.width = Pt(0.5)
     return shape
 
 
-def _add_separator(slide, x: float, y: float, w: float, color: str, height: float = 0.014) -> None:
+def _add_separator(slide, x: float, y: float, w: float, color: str, height: float = 0.012) -> None:
     line = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x), Inches(y), Inches(w), Inches(height))
     line.fill.solid()
     line.fill.fore_color.rgb = _rgb(color)
@@ -149,7 +147,7 @@ def _normalize_text(value: Any) -> str:
 
 
 def _sentence_safe_clip(value: Any, max_chars: int) -> str:
-    """Clip text without leaving visible ellipsis or half-finished endings."""
+    """Clip at sentence boundary. Never returns visible ellipsis."""
     text = _normalize_text(value)
     if len(text) <= max_chars:
         return text
@@ -171,9 +169,8 @@ def _sentence_safe_clip(value: Any, max_chars: int) -> str:
     if kept:
         return " ".join(kept).strip()
 
-    # Fallback for texts with no punctuation: cut on word boundary and close with a period.
     clipped = text[:max_chars].rsplit(" ", 1)[0].strip()
-    if clipped and clipped[-1] not in ".!?":
+    if clipped and clipped[-1] not in ".!?:;":
         clipped += "."
     return clipped
 
@@ -190,115 +187,28 @@ def _clean_text(value: Any, limit: int | None = None, sentence_safe: bool = True
     return clipped
 
 
-def _limited_list(value: Any, limit: int, max_items: int) -> list[str]:
-    if not isinstance(value, list):
-        value = [value] if value else []
-    return [_clean_text(item, limit, sentence_safe=True) for item in value if str(item).strip()][:max_items]
-
-
-def _font_size_for_text(text: str, base: float, compact: float, dense: float, very_dense: float) -> float:
-    n = len(_normalize_text(text))
-    if n > 760:
-        return very_dense
-    if n > 620:
-        return dense
-    if n > 460:
-        return compact
-    return base
-
-
-def _add_section_title(slide, title: str, x: float, y: float, w: float, color: str = BBVA_BLUE) -> None:
-    _add_textbox(slide, title, x, y, w, 0.28, font_size=11.2, color=color, bold=True, font_name=BODY_FONT)
-
-
-def _add_card(
-    slide,
-    title: str,
-    body: str | list[str],
-    x: float,
-    y: float,
-    w: float,
-    h: float,
-    fill: str = BBVA_WHITE,
-    accent: str = BBVA_BLUE,
-    body_size: float = 8.8,
-    max_bullets: int = 3,
-    max_chars: int = 115,
-    body_limit: int | None = None,
-    dense_body_size: tuple[float, float, float, float] | None = None,
-) -> None:
-    _add_round_rect(slide, x, y, w, h, fill=fill, line=fill)
-
-    title_color = BBVA_BLUE if fill != BBVA_BLUE else BBVA_WHITE
-    body_color = BBVA_DARK_TEXT if fill != BBVA_BLUE else BBVA_WHITE
-
-    _add_section_title(slide, title, x + 0.26, y + 0.18, w - 0.52, color=title_color)
-    _add_separator(slide, x + 0.26, y + 0.56, w - 0.52, accent, height=0.014)
-
-    text_shape = slide.shapes.add_textbox(Inches(x + 0.28), Inches(y + 0.72), Inches(w - 0.56), Inches(h - 0.86))
-    tf = text_shape.text_frame
-    tf.clear()
-    tf.word_wrap = True
-    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
-    tf.margin_left = Inches(0.00)
-    tf.margin_right = Inches(0.00)
-    tf.margin_top = Inches(0.00)
-    tf.margin_bottom = Inches(0.00)
-
-    if isinstance(body, list):
-        bullets = _limited_list(body, max_chars, max_bullets)
-        for idx, bullet in enumerate(bullets):
-            p = tf.paragraphs[0] if idx == 0 else tf.add_paragraph()
-            p.space_after = Pt(3)
-            p.line_spacing = 1.03
-            run = p.add_run()
-            run.text = "• " + bullet
-            _set_font(run, BODY_FONT, body_size, body_color)
-        return
-
-    text = _clean_text(body, body_limit, sentence_safe=True)
-    dynamic_body_size = body_size
-    if dense_body_size is not None:
-        dynamic_body_size = _font_size_for_text(text, *dense_body_size)
-
-    p = tf.paragraphs[0]
-    p.space_after = Pt(1)
-    p.line_spacing = 1.00
-    run = p.add_run()
-    run.text = text
-    _set_font(run, BODY_FONT, dynamic_body_size, body_color)
-
-
-def _add_risk_badge(slide, risk_level: str, x: float, y: float) -> None:
-    risk = (risk_level or "medio").lower().strip()
-    label = {"alto": "Riesgo alto", "medio": "Riesgo medio", "bajo": "Riesgo bajo"}.get(risk, "Riesgo medio")
-    color = {"alto": BBVA_MANDARIN, "medio": BBVA_SERENE_BLUE, "bajo": BBVA_LIME}.get(risk, BBVA_SERENE_BLUE)
-    _add_round_rect(slide, x, y, 1.38, 0.36, fill=color, line=color)
-    _add_textbox(
-        slide,
-        label,
-        x + 0.06,
-        y + 0.065,
-        1.26,
-        0.20,
-        font_size=8.5,
-        color=BBVA_MIDNIGHT,
-        bold=True,
-        align=PP_ALIGN.CENTER,
-        vertical_anchor=MSO_ANCHOR.MIDDLE,
-    )
-
-
 def _period_label(report: dict[str, Any]) -> str:
     period = report.get("period", {}) if isinstance(report.get("period"), dict) else {}
     return str(period.get("label") or "Período quincenal")
 
 
+def _format_date(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    for candidate in (raw, raw.replace("Z", "+00:00")):
+        try:
+            return datetime.fromisoformat(candidate).strftime("%d/%m/%Y")
+        except Exception:
+            pass
+    return raw[:10]
+
+
 def _add_header(slide, title: str, section: str, period_label: str) -> None:
-    _add_logo(slide, "blue", 11.72, 0.32, 0.88)
+    _add_logo(slide, "blue", 11.78, 0.32, 0.82)
     _add_textbox(slide, "INFORME QUINCENAL / ASUNTOS PÚBLICOS", 0.55, 0.31, 3.4, 0.20, font_size=6.7, color=BBVA_BLUE, bold=True)
     _add_textbox(slide, section.upper(), 4.15, 0.31, 3.3, 0.20, font_size=6.7, color=BBVA_BLUE, bold=True)
-    _add_textbox(slide, title, 0.55, 0.72, 7.6, 0.56, font_size=25.5, color=BBVA_BLUE, bold=True, font_name=TITLE_FONT, auto_size=True)
+    _add_textbox(slide, title, 0.55, 0.70, 7.8, 0.55, font_size=24.5, color=BBVA_BLUE, bold=True, font_name=TITLE_FONT, auto_size=True)
     _add_textbox(slide, period_label, 0.56, 1.18, 5.0, 0.22, font_size=8.5, color=BBVA_GREY_4)
 
 
@@ -307,144 +217,176 @@ def _add_page_number(slide, page: int) -> None:
 
 
 def _add_cover_micro_fallback(slide) -> None:
-    _add_round_rect(slide, 8.30, 2.05, 0.72, 2.72, fill=BBVA_SERENE_BLUE, line=BBVA_SERENE_BLUE)
-    _add_round_rect(slide, 9.18, 1.55, 0.72, 3.22, fill=BBVA_ICE, line=BBVA_ICE)
-    _add_round_rect(slide, 10.06, 2.55, 0.72, 2.22, fill=BBVA_SERENE_BLUE, line=BBVA_SERENE_BLUE)
-    circle = slide.shapes.add_shape(MSO_SHAPE.OVAL, Inches(9.15), Inches(4.92), Inches(0.78), Inches(0.78))
-    circle.fill.solid()
-    circle.fill.fore_color.rgb = _rgb(BBVA_PURPLE)
-    circle.line.color.rgb = _rgb(BBVA_PURPLE)
+    _add_round_rect(slide, 10.75, 5.18, 0.40, 1.28, fill=BBVA_SERENE_BLUE, line=BBVA_SERENE_BLUE)
+    _add_round_rect(slide, 11.28, 4.82, 0.40, 1.64, fill=BBVA_SERENE_BLUE, line=BBVA_SERENE_BLUE)
+    _add_round_rect(slide, 11.82, 5.45, 0.40, 1.01, fill=BBVA_SERENE_BLUE, line=BBVA_SERENE_BLUE)
 
 
 def _add_cover_icon(slide) -> None:
     if EMOJI_POLITICO.exists():
-        slide.shapes.add_picture(str(EMOJI_POLITICO), Inches(9.45), Inches(0.52), width=Inches(2.35))
+        # Bottom-right micro asset. Small enough to work as a brand resource, not as the visual protagonist.
+        slide.shapes.add_picture(str(EMOJI_POLITICO), Inches(10.50), Inches(4.72), width=Inches(2.05))
     else:
         _add_cover_micro_fallback(slide)
 
 
 def _add_cover(slide, period_label: str) -> None:
     _set_background(slide, BBVA_BLUE)
-    _add_logo(slide, "white", 0.55, 0.42, 1.05)
-    _add_cover_icon(slide)
+    _add_logo(slide, "white", 0.55, 0.42, 1.02)
 
-    _add_textbox(slide, period_label, 0.58, 3.42, 4.8, 0.22, font_size=10.2, color=BBVA_WHITE)
-    _add_textbox(slide, "Dirección de Relaciones Institucionales", 0.58, 3.68, 5.9, 0.25, font_size=10.2, color=BBVA_WHITE)
-    _add_separator(slide, 0.58, 4.08, 12.15, BBVA_WHITE, height=0.010)
+    _add_textbox(slide, period_label, 0.58, 2.78, 4.8, 0.22, font_size=9.8, color=BBVA_WHITE)
+    _add_textbox(slide, "Dirección de Relaciones Institucionales", 0.58, 3.04, 5.9, 0.25, font_size=9.8, color=BBVA_WHITE)
+    _add_separator(slide, 0.58, 3.42, 12.15, BBVA_WHITE, height=0.010)
 
     _add_textbox(
         slide,
-        "Contexto político\ny regulatorio",
+        "Contexto político",
         0.55,
-        4.62,
-        8.7,
-        1.55,
-        font_size=45,
+        3.90,
+        7.2,
+        1.05,
+        font_size=30,
         color=BBVA_WHITE,
         bold=True,
         font_name=TITLE_FONT,
         auto_size=True,
         margin=0.00,
     )
-    _add_textbox(slide, "Informe quincenal · borrador editable", 0.58, 6.92, 5.6, 0.22, font_size=8.0, color=BBVA_WHITE, italic=True)
+    _add_textbox(slide, "Informe quincenal · borrador editable", 0.58, 6.92, 5.6, 0.22, font_size=7.8, color=BBVA_WHITE, italic=True)
+    _add_cover_icon(slide)
+
+
+def _paragraph(tf, text: str, font_size: float, color: str, bold: bool = False, font_name: str = BODY_FONT):
+    p = tf.paragraphs[0]
+    p.space_after = Pt(0)
+    p.line_spacing = 1.0
+    run = p.add_run()
+    run.text = text
+    _set_font(run, font_name, font_size, color, bold=bold)
+    return p
+
+
+def _add_vision_card(slide, title: str, body: str, x: float, y: float, w: float, h: float) -> None:
+    _add_round_rect(slide, x, y, w, h, fill=BBVA_WHITE, line=BBVA_WHITE)
+    _add_textbox(slide, title, x + 0.24, y + 0.15, w - 0.48, 0.25, font_size=10.6, color=BBVA_BLUE, bold=True)
+    _add_separator(slide, x + 0.24, y + 0.50, w - 0.48, BBVA_SERENE_BLUE, height=0.014)
+    shape = slide.shapes.add_textbox(Inches(x + 0.25), Inches(y + 0.66), Inches(w - 0.50), Inches(h - 0.80))
+    tf = shape.text_frame
+    tf.clear()
+    tf.word_wrap = True
+    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    tf.margin_left = Inches(0.0)
+    tf.margin_right = Inches(0.0)
+    tf.margin_top = Inches(0.0)
+    tf.margin_bottom = Inches(0.0)
+    text = _clean_text(body, TEXT_LIMITS["executive_vision"], sentence_safe=True)
+    _paragraph(tf, text, 8.3, BBVA_DARK_TEXT, font_name=BODY_FONT)
+
+
+def _add_news_card(slide, item: dict[str, Any], idx: int, x: float, y: float, w: float, h: float) -> None:
+    _add_round_rect(slide, x, y, w, h, fill=BBVA_WHITE, line=BBVA_WHITE)
+
+    number = f"{idx:02d}"
+    _add_round_rect(slide, x + 0.20, y + 0.20, 0.42, 0.30, fill=BBVA_BLUE, line=BBVA_BLUE)
+    _add_textbox(slide, number, x + 0.20, y + 0.245, 0.42, 0.12, font_size=6.5, color=BBVA_WHITE, bold=True, align=PP_ALIGN.CENTER, vertical_anchor=MSO_ANCHOR.MIDDLE)
+
+    title = _clean_text(item.get("title", ""), TEXT_LIMITS["news_title"], sentence_safe=True)
+    _add_textbox(slide, title, x + 0.73, y + 0.18, w - 0.95, 0.40, font_size=8.4, color=BBVA_BLUE, bold=True, auto_size=True)
+    _add_separator(slide, x + 0.22, y + 0.68, w - 0.44, BBVA_GREY_2, height=0.010)
+
+    source = _normalize_text(item.get("source", ""))
+    date = _format_date(item.get("date") or item.get("published_at"))
+    meta = " · ".join([part for part in [source, date] if part])
+    if meta:
+        _add_textbox(slide, _clean_text(meta, TEXT_LIMITS["news_meta"], sentence_safe=False), x + 0.24, y + 0.78, w - 0.48, 0.18, font_size=6.4, color=BBVA_GREY_4, bold=True)
+
+    summary = item.get("why_it_matters") or item.get("summary") or item.get("reading") or ""
+    summary = _clean_text(summary, TEXT_LIMITS["news_summary"], sentence_safe=True)
+    shape = slide.shapes.add_textbox(Inches(x + 0.24), Inches(y + 1.02), Inches(w - 0.48), Inches(h - 1.16))
+    tf = shape.text_frame
+    tf.clear()
+    tf.word_wrap = True
+    tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
+    tf.margin_left = Inches(0.0)
+    tf.margin_right = Inches(0.0)
+    tf.margin_top = Inches(0.0)
+    tf.margin_bottom = Inches(0.0)
+    _paragraph(tf, summary, 7.2, BBVA_DARK_TEXT, font_name=BODY_FONT)
+
+
+def _top_news_from_report(report: dict[str, Any]) -> list[dict[str, Any]]:
+    analysis = report.get("analysis", {}) if isinstance(report.get("analysis"), dict) else {}
+    top_news = analysis.get("top_political_news")
+    if isinstance(top_news, list) and top_news:
+        cleaned: list[dict[str, Any]] = []
+        for item in top_news[:4]:
+            if isinstance(item, dict):
+                cleaned.append(item)
+            elif item:
+                cleaned.append({"title": str(item), "why_it_matters": ""})
+        if cleaned:
+            return cleaned
+
+    selected_news = report.get("selected_news", []) if isinstance(report.get("selected_news"), list) else []
+    fallback: list[dict[str, Any]] = []
+    for item in selected_news[:4]:
+        fallback.append(
+            {
+                "title": item.get("title", "Noticia política relevante"),
+                "source": item.get("source", ""),
+                "published_at": item.get("published_at", ""),
+                "why_it_matters": item.get("summary", ""),
+            }
+        )
+    return fallback
 
 
 def _add_analysis(slide, report: dict[str, Any]) -> None:
-    analysis = report.get("analysis", {})
+    analysis = report.get("analysis", {}) if isinstance(report.get("analysis"), dict) else {}
     period_label = _period_label(report)
     stats = report.get("stats", {}) if isinstance(report.get("stats"), dict) else {}
     generated_at = datetime.now().strftime("%d/%m/%Y")
 
     _set_background(slide, BBVA_SAND)
-    _add_header(slide, "Análisis ejecutivo", "Contexto político y regulatorio", period_label)
+    _add_header(slide, "Actualidad política", "Contexto político", period_label)
 
-    headline = _clean_text(analysis.get("headline") or "Contexto político quincenal", TEXT_LIMITS["headline"], sentence_safe=False)
-    _add_textbox(slide, headline, 0.56, 1.46, 9.35, 0.34, font_size=14.6, color=BBVA_DARK_TEXT, bold=True, auto_size=True)
-    _add_risk_badge(slide, analysis.get("risk_level", "medio"), 10.45, 1.44)
+    headline = _clean_text(analysis.get("headline") or "Cuatro claves políticas de la quincena", TEXT_LIMITS["headline"], sentence_safe=True)
+    _add_textbox(slide, headline, 0.56, 1.45, 11.5, 0.34, font_size=13.2, color=BBVA_DARK_TEXT, bold=True, auto_size=True)
 
-    # Executive vision gets the full width to avoid unfinished text. The text is sentence-safe and auto-fits.
-    _add_card(
+    _add_vision_card(
         slide,
         "Visión ejecutiva",
         analysis.get("executive_vision", ""),
         0.55,
         1.88,
         12.20,
-        2.24,
-        fill=BBVA_WHITE,
-        accent=BBVA_SERENE_BLUE,
-        body_size=8.9,
-        body_limit=TEXT_LIMITS["executive_vision"],
-        dense_body_size=(8.9, 8.2, 7.6, 7.1),
+        1.32,
     )
 
-    _add_card(
-        slide,
-        "Principales hitos",
-        analysis.get("key_developments", []),
-        0.55,
-        4.38,
-        3.90,
-        2.05,
-        fill=BBVA_WHITE,
-        accent=BBVA_BLUE,
-        body_size=7.35,
-        max_bullets=3,
-        max_chars=TEXT_LIMITS["key_developments"],
-    )
-    _add_card(
-        slide,
-        "Implicancias para BBVA / sistema financiero",
-        analysis.get("bbva_implications", []),
-        4.72,
-        4.38,
-        4.05,
-        2.05,
-        fill=BBVA_SERENE_BLUE,
-        accent=BBVA_BLUE,
-        body_size=7.25,
-        max_bullets=2,
-        max_chars=TEXT_LIMITS["bbva_implications"],
-    )
-    _add_card(
-        slide,
-        "Focos a monitorear",
-        analysis.get("watchlist", []),
-        9.04,
-        4.38,
-        3.71,
-        2.05,
-        fill=BBVA_WHITE,
-        accent=BBVA_LIME,
-        body_size=7.05,
-        max_bullets=3,
-        max_chars=TEXT_LIMITS["watchlist"],
-    )
+    top_news = _top_news_from_report(report)
+    card_positions = [
+        (0.55, 3.46, 5.92, 1.55),
+        (6.82, 3.46, 5.93, 1.55),
+        (0.55, 5.22, 5.92, 1.55),
+        (6.82, 5.22, 5.93, 1.55),
+    ]
+    for idx, (x, y, w, h) in enumerate(card_positions, start=1):
+        item = top_news[idx - 1] if idx - 1 < len(top_news) else {"title": "Noticia pendiente de validación", "why_it_matters": "No se identificó una cuarta noticia con suficiente cobertura para esta quincena."}
+        _add_news_card(slide, item, idx, x, y, w, h)
 
     footer = (
         f"Fuentes relevadas: {stats.get('raw_news_count', 0)} | "
         f"Noticias seleccionadas: {stats.get('selected_news_count', 0)} | "
         f"Generado: {generated_at}"
     )
-    _add_textbox(slide, footer, 0.55, 6.93, 9.7, 0.18, font_size=7.2, color=BBVA_GREY_4)
+    _add_textbox(slide, footer, 0.55, 6.95, 9.7, 0.18, font_size=7.0, color=BBVA_GREY_4)
     _add_page_number(slide, 2)
 
 
 def _add_closing(slide) -> None:
     _set_background(slide, BBVA_BLUE)
-    # Smaller logo avoids pixelation from the source PNG while preserving brand hierarchy.
-    _add_logo(slide, "white", 5.78, 3.18, 1.78)
-    _add_textbox(
-        slide,
-        "Dirección de Relaciones Institucionales",
-        0.65,
-        6.90,
-        12.0,
-        0.22,
-        font_size=8.4,
-        color=BBVA_WHITE,
-        align=PP_ALIGN.CENTER,
-    )
+    # Smaller logo to reduce pixelation and match the clean closing proportion.
+    _add_logo(slide, "white", 5.98, 3.29, 1.36)
 
 
 def create_aapp_pptx(report: dict[str, Any], output_path: Path) -> Path:

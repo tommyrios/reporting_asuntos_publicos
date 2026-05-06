@@ -10,25 +10,25 @@
       "ceid": "AR:es-419"
     },
     "queries": [
-      "Argentina gobierno Congreso economia bancos",
-      "Argentina BCRA bancos sistema financiero regulacion",
-      "Argentina CNV mercado capitales bancos",
-      "Argentina politica economica presupuesto Congreso",
-      "Argentina impuestos ARCA sector financiero",
-      "Argentina reforma laboral Congreso sindicatos bancos",
-      "Argentina gobernadores Casa Rosada reformas economicas"
+      "Argentina gobierno Congreso politica",
+      "Argentina Casa Rosada gobernadores oposición",
+      "Argentina Senado Diputados proyecto de ley",
+      "Argentina bloques Congreso oficialismo oposición",
+      "Argentina gobernabilidad acuerdos políticos",
+      "Argentina sindicatos conflicto social gobierno",
+      "Argentina elecciones encuestas politica"
     ]
   },
   "gdelt": {
     "enabled": true,
-    "max_records_per_query": 12,
-    "request_delay_seconds": 2.5,
+    "max_records_per_query": 10,
+    "request_delay_seconds": 3.5,
     "max_retries": 2,
-    "backoff_seconds": 3.0,
+    "backoff_seconds": 5.0,
     "queries": [
-      "(Argentina OR argentino) (gobierno OR Congreso OR Senado OR Diputados) (economia OR reforma OR presupuesto)",
-      "(Argentina OR argentino) (BCRA OR CNV OR bancos OR financiero OR fintech)",
-      "(Argentina OR argentino) (impuestos OR ARCA OR regulacion OR normativa) (empresas OR bancos)"
+      "(Argentina OR argentino) (gobierno OR presidente OR Casa Rosada) (Congreso OR gobernadores OR oposición)",
+      "(Argentina OR argentino) (Senado OR Diputados OR Congreso) (ley OR dictamen OR quorum OR bloques)",
+      "(Argentina OR argentino) (gobernabilidad OR acuerdos OR coalición OR oficialismo OR oposición)"
     ]
   },
   "rss_feeds": [
@@ -45,16 +45,15 @@
   "priority_domains": [
     "argentina.gob.ar",
     "boletinoficial.gob.ar",
-    "bcra.gob.ar",
-    "cnv.gov.ar",
     "diputados.gob.ar",
-    "senado.gob.ar"
+    "senado.gob.ar",
+    "casarosada.gob.ar"
   ],
   "deduplication": {
     "title_similarity_threshold": 0.88
   },
   "selection": {
-    "max_selected_news": 12,
+    "max_selected_news": 4,
     "min_relevance_score": 20
   }
 }

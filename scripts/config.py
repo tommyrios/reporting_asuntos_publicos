@@ -23,7 +23,7 @@ HISTORY_PATH = HISTORY_DIR / "used_news.json"
 REPORT_TIMEZONE = os.environ.get("REPORT_TIMEZONE", "America/Argentina/Buenos_Aires")
 DEFAULT_PERIOD_DAYS = int(os.environ.get("AAPP_PERIOD_DAYS", "15"))
 MAX_NEWS = int(os.environ.get("AAPP_MAX_NEWS", "120"))
-SELECTED_NEWS = int(os.environ.get("AAPP_SELECTED_NEWS", "12"))
+SELECTED_NEWS = int(os.environ.get("AAPP_SELECTED_NEWS", "4"))
 
 # BBVA 2025 template palette.
 BBVA_ELECTRIC_BLUE = "001391"
