@@ -4,22 +4,33 @@ import hashlib
 import html
 import json
 import re
+import unicodedata
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+from dateutil import parser as dtparser
 
 
-def parse_bool(value: str | bool | None, default: bool = False) -> bool:
-    if value is None:
-        return default
-    if isinstance(value, bool):
-        return value
-    return str(value).strip().lower() in {"1", "true", "yes", "y", "si", "sí"}
+SPANISH_MONTHS = {
+    1: "enero",
+    2: "febrero",
+    3: "marzo",
+    4: "abril",
+    5: "mayo",
+    6: "junio",
+    7: "julio",
+    8: "agosto",
+    9: "septiembre",
+    10: "octubre",
+    11: "noviembre",
+    12: "diciembre",
+}
 
 
-def read_json(path: Path, default: Any | None = None) -> Any:
+def read_json(path: Path, default: Any = None) -> Any:
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
@@ -30,87 +41,77 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def strip_html(value: str | None) -> str:
-    if not value:
-        return ""
-    text = re.sub(r"<[^>]+>", " ", value)
-    text = html.unescape(text)
-    return re.sub(r"\s+", " ", text).strip()
+def parse_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "si", "sí"}
 
 
-def normalize_text(value: str | None) -> str:
-    if not value:
-        return ""
-    value = strip_html(value).lower()
-    value = re.sub(r"[^a-záéíóúüñ0-9 ]+", " ", value, flags=re.IGNORECASE)
+def normalize_text(value: str) -> str:
+    value = value or ""
+    value = unicodedata.normalize("NFKD", value)
+    value = "".join(ch for ch in value if not unicodedata.combining(ch))
+    value = value.lower()
+    value = re.sub(r"https?://\S+", " ", value)
+    value = re.sub(r"[^a-z0-9ñáéíóúü\s]", " ", value)
     value = re.sub(r"\s+", " ", value).strip()
     return value
 
 
-def compact_hash(value: str, length: int = 12) -> str:
-    return hashlib.sha256(value.encode("utf-8")).hexdigest()[:length]
+def compact_hash(value: str, length: int = 16) -> str:
+    return hashlib.sha256((value or "").encode("utf-8")).hexdigest()[:length]
 
 
-def canonicalize_url(url: str | None) -> str:
+def strip_html(value: str) -> str:
+    value = value or ""
+    value = re.sub(r"<script.*?</script>", " ", value, flags=re.I | re.S)
+    value = re.sub(r"<style.*?</style>", " ", value, flags=re.I | re.S)
+    value = re.sub(r"<[^>]+>", " ", value)
+    value = html.unescape(value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def canonicalize_url(url: str) -> str:
     if not url:
         return ""
-    parts = urlsplit(url.strip())
-    query = []
-    blocked_prefixes = ("utm_",)
-    blocked_keys = {"fbclid", "gclid", "mc_cid", "mc_eid", "ref", "source"}
-    for key, value in parse_qsl(parts.query, keep_blank_values=False):
-        key_l = key.lower()
-        if key_l in blocked_keys or any(key_l.startswith(prefix) for prefix in blocked_prefixes):
-            continue
-        query.append((key, value))
-    cleaned_path = re.sub(r"/+$", "", parts.path or "")
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), cleaned_path, urlencode(query), ""))
+    try:
+        parsed = urlparse(url)
+        query = [(k, v) for k, v in parse_qsl(parsed.query, keep_blank_values=False) if not k.lower().startswith("utm_")]
+        return urlunparse((parsed.scheme, parsed.netloc.lower(), parsed.path.rstrip("/"), "", urlencode(query), ""))
+    except Exception:
+        return url
 
 
-def parse_datetime(value: str | None) -> datetime | None:
+def parse_datetime(value: Any) -> datetime | None:
     if not value:
         return None
-    raw = str(value).strip()
-    if not raw:
-        return None
-
-    candidates = [raw]
-    if raw.endswith("Z"):
-        candidates.append(raw[:-1] + "+00:00")
-
-    for candidate in candidates:
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        raw = str(value).strip()
         try:
-            dt = datetime.fromisoformat(candidate)
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt
-        except ValueError:
-            pass
-
-    for fmt in ("%Y%m%d%H%M%S", "%Y%m%d%H%M", "%Y-%m-%d %H:%M:%S"):
-        try:
-            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
-        except ValueError:
-            pass
-
-    try:
-        dt = parsedate_to_datetime(raw)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt
-    except Exception:
-        return None
-
-
-def to_iso(dt: datetime | None) -> str:
-    if not dt:
-        return ""
+            dt = parsedate_to_datetime(raw)
+        except Exception:
+            try:
+                dt = dtparser.parse(raw)
+            except Exception:
+                return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
-    return dt.isoformat()
+    return dt
 
 
-def within_period(value: str | None, start: datetime, end: datetime) -> bool:
+def to_iso(value: datetime | None) -> str:
+    if not value:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.isoformat()
+
+
+def within_period(value: str, start: datetime, end: datetime) -> bool:
     dt = parse_datetime(value)
     if not dt:
         return True
@@ -118,11 +119,25 @@ def within_period(value: str | None, start: datetime, end: datetime) -> bool:
         start = start.replace(tzinfo=timezone.utc)
     if end.tzinfo is None:
         end = end.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(start.tzinfo)
     return start <= dt <= end
 
 
 def truncate(value: str, max_chars: int) -> str:
-    value = re.sub(r"\s+", " ", value or "").strip()
-    if len(value) <= max_chars:
+    value = re.sub(r"\s+", " ", (value or "")).strip()
+    if max_chars <= 0 or len(value) <= max_chars:
         return value
-    return value[: max_chars - 1].rstrip() + "…"
+    cut = value[:max_chars].rsplit(" ", 1)[0].rstrip(" ,;:")
+    # Avoid unfinished ellipses in executive documents. Return a complete-looking sentence.
+    last_stop = max(cut.rfind("."), cut.rfind(";"))
+    if last_stop > max_chars * 0.65:
+        cut = cut[: last_stop + 1]
+    return cut.rstrip(" ,;:")
+
+
+def format_spanish_date(dt: datetime) -> str:
+    return f"{dt.day} de {SPANISH_MONTHS[dt.month].capitalize()} de {dt.year}"
+
+
+def split_emails(value: str) -> list[str]:
+    return [part.strip() for part in re.split(r"[,;]", value or "") if part.strip()]

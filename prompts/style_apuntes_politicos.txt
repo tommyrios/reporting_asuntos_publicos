@@ -1,0 +1,19 @@
+Tono objetivo: nota interna de actualidad política, no reporte comercial ni análisis centrado en intereses bancarios.
+
+Imitar el estilo de “Apuntes políticos”:
+- Redacción politológica, analítica y sobria.
+- Foco en gobernabilidad, Congreso, oficialismo, oposición, calle, opinión pública y economía política.
+- Evitar frases de consultoría genéricas y evitar “impacto para BBVA”.
+- No mencionar medios específicos, salvo que el hecho político lo requiera.
+- Tratar cada cluster como una pieza de información consolidada a partir de varios medios.
+- Desarrollar tesis + lectura, no listar titulares.
+- Usar oraciones relativamente largas, pero claras.
+- Incluir matices: “sin embargo”, “a diferencia de”, “aunque”, “en este contexto”.
+- No afirmar causalidades fuertes si no están respaldadas por el input.
+- No reutilizar noticias de informes anteriores. Sí mantener este formato y tono.
+
+Formato:
+- Título: Apuntes políticos #N.
+- Bajada inicial fuerte de 1 párrafo.
+- Entre 4 y 8 desarrollos, cada uno iniciado por una tesis en negrita.
+- Cierre con “Claves prospectivas” y 4 a 6 puntos.

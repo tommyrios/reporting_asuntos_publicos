@@ -16,11 +16,11 @@ from utils import parse_datetime, read_json, strip_html, to_iso, within_period
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "Mozilla/5.0 (compatible; BBVA-AAPP-ReportBot/1.1; +https://www.bbva.com)"
+USER_AGENT = "Mozilla/5.0 (compatible; AAPP-Political-NotesBot/2.0; +https://www.bbva.com)"
 RETRYABLE_HTTP_CODES = {429, 500, 502, 503, 504}
 
 
-def _fetch_text(url: str, timeout: int = 20) -> str:
+def _fetch_text(url: str, timeout: int = 25) -> str:
     req = urllib.request.Request(
         url,
         headers={
@@ -39,24 +39,17 @@ def _retry_after_seconds(exc: urllib.error.HTTPError, default: float) -> float:
         try:
             return max(default, float(raw))
         except ValueError:
-            pass
+            return default
     return default
 
 
-def _safe_fetch_text(
-    url: str,
-    timeout: int = 20,
-    max_retries: int = 1,
-    backoff_seconds: float = 1.5,
-    label: str = "fetch",
-) -> str:
+def _safe_fetch_text(url: str, label: str, timeout: int = 25, max_retries: int = 1, backoff_seconds: float = 2.0) -> str:
     for attempt in range(max_retries + 1):
         try:
             return _fetch_text(url, timeout=timeout)
         except urllib.error.HTTPError as exc:
             code = getattr(exc, "code", None)
-            retryable = code in RETRYABLE_HTTP_CODES
-            if retryable and attempt < max_retries:
+            if code in RETRYABLE_HTTP_CODES and attempt < max_retries:
                 wait = _retry_after_seconds(exc, backoff_seconds * (2 ** attempt))
                 logger.warning(
                     "event=fetch_retry label=%s status=%s attempt=%s/%s wait_seconds=%.1f url=%s",
@@ -69,30 +62,17 @@ def _safe_fetch_text(
                 )
                 time.sleep(wait)
                 continue
-            logger.warning("event=fetch_failed label=%s url=%s reason=HTTP Error %s: %s", label, url, code, exc.reason)
+            logger.warning("event=fetch_failed label=%s status=%s reason=%s url=%s", label, code, exc.reason, url)
             return ""
-        except (urllib.error.URLError, TimeoutError, ValueError) as exc:
+        except Exception as exc:  # network instability should not break the whole report
             if attempt < max_retries:
                 wait = backoff_seconds * (2 ** attempt)
-                logger.warning(
-                    "event=fetch_retry label=%s attempt=%s/%s wait_seconds=%.1f url=%s reason=%s",
-                    label,
-                    attempt + 1,
-                    max_retries,
-                    wait,
-                    url,
-                    exc,
-                )
+                logger.warning("event=fetch_retry label=%s attempt=%s/%s wait_seconds=%.1f reason=%s", label, attempt + 1, max_retries, wait, exc)
                 time.sleep(wait)
                 continue
-            logger.warning("event=fetch_failed label=%s url=%s reason=%s", label, url, exc)
+            logger.warning("event=fetch_failed label=%s reason=%s url=%s", label, exc, url)
             return ""
     return ""
-
-
-def _pause_between_requests(delay_seconds: float) -> None:
-    if delay_seconds > 0:
-        time.sleep(delay_seconds)
 
 
 def _xml_text(node: ET.Element | None) -> str:
@@ -116,8 +96,7 @@ def parse_rss(xml_text: str, source_name: str, collector: str, query: str = "") 
         link = _xml_text(item.find("link"))
         pub_date = _xml_text(item.find("pubDate")) or _xml_text(item.find("published"))
         description = _xml_text(item.find("description"))
-        source_node = item.find("source")
-        source = _xml_text(source_node) or source_name
+        source = _xml_text(item.find("source")) or source_name
         if not title and not link:
             continue
         dt = parse_datetime(pub_date)
@@ -148,20 +127,18 @@ def collect_google_news(config: dict[str, Any], start: datetime, end: datetime, 
     google_cfg = config.get("google_news", {})
     if not google_cfg.get("enabled", True):
         return []
-
     locale = google_cfg.get("locale", {})
-    queries = google_cfg.get("queries", [])
-    delay = float(google_cfg.get("request_delay_seconds", 0.4))
+    delay = float(google_cfg.get("request_delay_seconds", 0.8))
     max_retries = int(google_cfg.get("max_retries", 1))
-    backoff = float(google_cfg.get("backoff_seconds", 1.5))
+    backoff = float(google_cfg.get("backoff_seconds", 2.0))
     items: list[NewsItem] = []
-    for idx, query in enumerate(queries):
+    for idx, query in enumerate(google_cfg.get("queries", [])):
         url = build_google_news_url(query, period_days=period_days, locale=locale)
-        xml_text = _safe_fetch_text(url, max_retries=max_retries, backoff_seconds=backoff, label="google_news")
+        xml_text = _safe_fetch_text(url, label="google_news", max_retries=max_retries, backoff_seconds=backoff)
         parsed = parse_rss(xml_text, source_name="Google News", collector="google_news", query=query)
         items.extend([item for item in parsed if within_period(item.published_at, start, end)])
-        if idx < len(queries) - 1:
-            _pause_between_requests(delay)
+        if idx < len(google_cfg.get("queries", [])) - 1:
+            time.sleep(delay)
     return items
 
 
@@ -182,77 +159,63 @@ def collect_gdelt(config: dict[str, Any], start: datetime, end: datetime) -> lis
     gdelt_cfg = config.get("gdelt", {})
     if not gdelt_cfg.get("enabled", True):
         return []
-
-    max_records = int(gdelt_cfg.get("max_records_per_query", 12))
-    delay = float(gdelt_cfg.get("request_delay_seconds", 2.5))
-    max_retries = int(gdelt_cfg.get("max_retries", 2))
-    backoff = float(gdelt_cfg.get("backoff_seconds", 3.0))
-    queries = gdelt_cfg.get("queries", [])
+    max_records = int(gdelt_cfg.get("max_records_per_query", 10))
+    delay = float(gdelt_cfg.get("request_delay_seconds", 8.0))
+    max_retries = int(gdelt_cfg.get("max_retries", 1))
+    backoff = float(gdelt_cfg.get("backoff_seconds", 5.0))
     items: list[NewsItem] = []
+    queries = gdelt_cfg.get("queries", [])
     for idx, query in enumerate(queries):
         url = build_gdelt_url(query, start=start, end=end, max_records=max_records)
-        text = _safe_fetch_text(url, max_retries=max_retries, backoff_seconds=backoff, label="gdelt")
-        if not text:
-            if idx < len(queries) - 1:
-                _pause_between_requests(delay)
-            continue
-        try:
-            payload = json.loads(text)
-        except json.JSONDecodeError as exc:
-            logger.warning("event=gdelt_json_failed query=%s reason=%s", query, exc)
-            if idx < len(queries) - 1:
-                _pause_between_requests(delay)
-            continue
-        for article in payload.get("articles", []):
-            title = article.get("title") or ""
-            link = article.get("url") or ""
-            if not title and not link:
-                continue
-            dt = parse_datetime(article.get("seendate") or article.get("publishedAt"))
-            source = article.get("sourceCommonName") or article.get("domain") or "GDELT"
-            items.append(
-                NewsItem(
-                    title=title,
-                    url=link,
-                    source=source,
-                    published_at=to_iso(dt) if dt else str(article.get("seendate") or ""),
-                    summary=strip_html(article.get("snippet") or article.get("description") or ""),
-                    collector="gdelt",
-                    query=query,
-                    metadata={
-                        "domain": article.get("domain"),
-                        "language": article.get("language"),
-                        "source_country": article.get("sourceCountry"),
-                    },
+        text = _safe_fetch_text(url, label="gdelt", max_retries=max_retries, backoff_seconds=backoff)
+        if text:
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError as exc:
+                logger.warning("event=gdelt_json_failed query=%s reason=%s", query, exc)
+                payload = {}
+            for article in payload.get("articles", []):
+                title = article.get("title") or ""
+                link = article.get("url") or ""
+                if not title and not link:
+                    continue
+                dt = parse_datetime(article.get("seendate") or article.get("publishedAt"))
+                source = article.get("sourceCommonName") or article.get("domain") or "GDELT"
+                items.append(
+                    NewsItem(
+                        title=title,
+                        url=link,
+                        source=source,
+                        published_at=to_iso(dt) if dt else str(article.get("seendate") or ""),
+                        summary=strip_html(article.get("snippet") or article.get("description") or ""),
+                        collector="gdelt",
+                        query=query,
+                        metadata={
+                            "domain": article.get("domain"),
+                            "language": article.get("language"),
+                            "source_country": article.get("sourceCountry"),
+                        },
+                    )
                 )
-            )
         if idx < len(queries) - 1:
-            _pause_between_requests(delay)
+            time.sleep(delay)
     return [item for item in items if within_period(item.published_at, start, end)]
 
 
 def collect_rss_feeds(config: dict[str, Any], start: datetime, end: datetime) -> list[NewsItem]:
     items: list[NewsItem] = []
-    feeds = config.get("rss_feeds", [])
-    for idx, feed in enumerate(feeds):
-        if not feed.get("enabled"):
+    for idx, feed in enumerate(config.get("rss_feeds", [])):
+        if not feed.get("enabled", False):
             continue
         url = feed.get("url") or ""
         if not url:
             continue
-        delay = float(feed.get("request_delay_seconds", 0.5))
-        max_retries = int(feed.get("max_retries", 1))
-        backoff = float(feed.get("backoff_seconds", 1.5))
-        xml_text = _safe_fetch_text(url, max_retries=max_retries, backoff_seconds=backoff, label="rss_feed")
-        parsed = parse_rss(
-            xml_text,
-            source_name=feed.get("name", "RSS"),
-            collector="rss_feed",
-            query=feed.get("category", ""),
-        )
+        delay = float(feed.get("request_delay_seconds", 1.0))
+        xml_text = _safe_fetch_text(url, label="rss_feed", max_retries=int(feed.get("max_retries", 1)), backoff_seconds=float(feed.get("backoff_seconds", 2.0)))
+        parsed = parse_rss(xml_text, source_name=feed.get("name", "RSS"), collector="rss_feed", query=feed.get("category", ""))
         items.extend([item for item in parsed if within_period(item.published_at, start, end)])
-        if idx < len(feeds) - 1:
-            _pause_between_requests(delay)
+        if idx < len(config.get("rss_feeds", [])) - 1:
+            time.sleep(delay)
     return items
 
 

@@ -1,51 +1,57 @@
+from __future__ import annotations
+
+import base64
 import os
 import smtplib
 from email.message import EmailMessage
-from pathlib import Path
+from typing import Any
+
+from google_services import gmail_service
+from utils import split_emails
 
 
-def send_email_with_attachments(subject: str, body: str, attachments: list[Path]):
-    smtp_host = os.getenv("SMTP_HOST", "smtp.office365.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-
-    email_user = os.getenv("EMAIL_USER")
-    email_password = os.getenv("EMAIL_PASSWORD")
-    email_from = os.getenv("EMAIL_FROM", email_user)
-    email_to = os.getenv("EMAIL_DESTINATARIO")
+def _build_message(subject: str, body: str) -> tuple[EmailMessage, list[str]]:
+    email_from = os.getenv("EMAIL_FROM") or os.getenv("EMAIL_USER") or "me"
+    email_to = os.getenv("EMAIL_DESTINATARIO", "")
     email_cc = os.getenv("EMAIL_CC", "")
     email_bcc = os.getenv("EMAIL_BCC", "")
-
-    if not email_user or not email_password or not email_to:
-        raise ValueError("Faltan EMAIL_USER, EMAIL_PASSWORD o EMAIL_DESTINATARIO")
+    recipients = split_emails(email_to) + split_emails(email_cc) + split_emails(email_bcc)
+    if not recipients:
+        raise ValueError("Falta EMAIL_DESTINATARIO")
 
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = email_from
-    msg["To"] = email_to
-
+    msg["To"] = ", ".join(split_emails(email_to))
     if email_cc:
-        msg["Cc"] = email_cc
-
+        msg["Cc"] = ", ".join(split_emails(email_cc))
     msg.set_content(body)
+    return msg, recipients
 
-    for attachment in attachments:
-        path = Path(attachment)
-        with open(path, "rb") as f:
-            msg.add_attachment(
-                f.read(),
-                maintype="application",
-                subtype="octet-stream",
-                filename=path.name,
-            )
 
-    recipients = []
-    recipients += [x.strip() for x in email_to.split(",") if x.strip()]
-    recipients += [x.strip() for x in email_cc.split(",") if x.strip()]
-    recipients += [x.strip() for x in email_bcc.split(",") if x.strip()]
+def send_email(subject: str, body: str) -> dict[str, Any]:
+    mode = os.getenv("EMAIL_DELIVERY_MODE", "gmail_api").strip().lower()
+    if mode in {"none", "false", "disabled"}:
+        return {"status": "skipped", "mode": mode}
 
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.starttls()
-        server.login(email_user, email_password)
-        server.send_message(msg, from_addr=email_from, to_addrs=recipients)
+    msg, recipients = _build_message(subject, body)
 
-    return {"status": "sent", "recipients": recipients}
+    if mode == "smtp":
+        host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+        port = int(os.getenv("SMTP_PORT", "587"))
+        user = os.getenv("EMAIL_USER")
+        password = os.getenv("EMAIL_PASSWORD")
+        if not user or not password:
+            raise ValueError("Para SMTP faltan EMAIL_USER o EMAIL_PASSWORD")
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            server.login(user, password)
+            server.send_message(msg, from_addr=msg["From"], to_addrs=recipients)
+        return {"status": "sent", "mode": "smtp", "recipients": recipients}
+
+    if mode == "gmail_api":
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+        result = gmail_service().users().messages().send(userId="me", body={"raw": raw}).execute()
+        return {"status": "sent", "mode": "gmail_api", "recipients": recipients, "gmail_result": result}
+
+    raise ValueError(f"EMAIL_DELIVERY_MODE no soportado: {mode}")

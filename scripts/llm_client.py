@@ -5,100 +5,79 @@ import logging
 import os
 import re
 import time
+from pathlib import Path
 from typing import Any
 
 from config import PROMPTS_DIR
+from utils import parse_bool
 
 logger = logging.getLogger(__name__)
 
 
-def load_prompt(filename: str) -> str:
-    path = PROMPTS_DIR / filename
+def load_prompt(name: str) -> str:
+    path = PROMPTS_DIR / name
     if not path.exists():
-        raise FileNotFoundError(path)
-    return path.read_text(encoding="utf-8").strip()
+        raise FileNotFoundError(f"Prompt no encontrado: {path}")
+    return path.read_text(encoding="utf-8")
 
 
-def clean_json_response(text: str) -> str:
+def _extract_json(text: str) -> dict[str, Any]:
     text = text.strip()
-    text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"^```\s*", "", text)
-    text = re.sub(r"\s*```$", "", text)
-    return text.strip()
-
-
-def _candidate_models() -> list[str]:
-    primary = (os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash").strip()
-    fallback_enabled = (os.environ.get("GEMINI_ENABLE_MODEL_FALLBACK") or "true").strip().lower() not in ("0", "false", "no")
-    models = [primary]
-    if fallback_enabled:
-        models.extend([m.strip() for m in (os.environ.get("GEMINI_FALLBACK_MODELS") or "").split(",") if m.strip()])
-    deduped: list[str] = []
-    for model in models:
-        if model and model not in deduped:
-            deduped.append(model)
-    return deduped
-
-
-def _read_env_int(name: str, default: int) -> int:
-    raw = (os.environ.get(name) or str(default)).strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?", "", text).strip()
+        text = re.sub(r"```$", "", text).strip()
     try:
-        return int(raw)
-    except ValueError as exc:
-        raise RuntimeError(f"Valor inválido para {name}: {raw}") from exc
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            return json.loads(text[start : end + 1])
+        raise
 
 
-def _read_env_float(name: str, default: float) -> float:
-    raw = (os.environ.get(name) or str(default)).strip()
-    try:
-        return float(raw)
-    except ValueError as exc:
-        raise RuntimeError(f"Valor inválido para {name}: {raw}") from exc
+def _models() -> list[str]:
+    primary = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    fallbacks = [m.strip() for m in os.getenv("GEMINI_FALLBACK_MODELS", "gemini-2.0-flash").split(",") if m.strip()]
+    if not parse_bool(os.getenv("GEMINI_ENABLE_MODEL_FALLBACK"), True):
+        return [primary]
+    ordered = []
+    for model in [primary, *fallbacks]:
+        if model not in ordered:
+            ordered.append(model)
+    return ordered
 
 
-def _is_retryable_error(exc: Exception) -> bool:
-    text = str(exc).lower()
-    return any(marker in text for marker in ("429", "500", "502", "503", "504", "timeout", "temporarily", "unavailable", "rate limit", "connection"))
-
-
-def build_genai_client() -> Any:
-    api_key = (os.environ.get("GEMINI_API_KEY") or "").strip()
+def call_gemini_for_json(contents: list[str]) -> dict[str, Any]:
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise RuntimeError("Falta GEMINI_API_KEY")
-    try:
-        from google import genai
-    except Exception as exc:
-        raise RuntimeError("No está instalado google-genai. Ejecutar pip install -r requirements.txt") from exc
-    return genai.Client(api_key=api_key)
 
+    from google import genai
 
-def call_gemini_for_json(contents: list[Any]) -> dict[str, Any]:
-    client = build_genai_client()
-    max_retries = max(1, _read_env_int("GEMINI_MAX_RETRIES_PER_MODEL", 3))
-    initial_backoff = max(0.0, _read_env_float("GEMINI_INITIAL_BACKOFF_SECONDS", 3.0))
-    max_backoff = max(initial_backoff, _read_env_float("GEMINI_MAX_BACKOFF_SECONDS", 30.0))
-    models = _candidate_models()
+    client = genai.Client(api_key=api_key)
+    max_retries = int(os.getenv("GEMINI_MAX_RETRIES_PER_MODEL", "3"))
+    initial_backoff = float(os.getenv("GEMINI_INITIAL_BACKOFF_SECONDS", "3"))
+    max_backoff = float(os.getenv("GEMINI_MAX_BACKOFF_SECONDS", "30"))
     last_error: Exception | None = None
 
-    for model_index, model_name in enumerate(models, start=1):
-        backoff = initial_backoff
+    for model_idx, model in enumerate(_models(), start=1):
         for attempt in range(1, max_retries + 1):
             try:
-                logger.info("event=gemini_attempt model=%s attempt=%s/%s", model_name, attempt, max_retries)
+                logger.info("event=gemini_attempt model=%s attempt=%s/%s", model, attempt, max_retries)
                 response = client.models.generate_content(
-                    model=model_name,
-                    contents=contents,
-                    config={"response_mime_type": "application/json"},
+                    model=model,
+                    contents="\n\n".join(contents),
+                    config={
+                        "temperature": 0.25,
+                        "response_mime_type": "application/json",
+                    },
                 )
-                text = getattr(response, "text", "") or ""
-                return json.loads(clean_json_response(text))
+                return _extract_json(response.text or "{}")
             except Exception as exc:
                 last_error = exc
-                if not _is_retryable_error(exc):
-                    raise
                 if attempt < max_retries:
-                    time.sleep(backoff)
-                    backoff = min(backoff * 2, max_backoff)
-        logger.warning("event=gemini_model_exhausted model=%s index=%s/%s", model_name, model_index, len(models))
-
+                    wait = min(max_backoff, initial_backoff * (2 ** (attempt - 1)))
+                    time.sleep(wait)
+        logger.warning("event=gemini_model_exhausted model=%s index=%s/%s", model, model_idx, len(_models()))
     raise RuntimeError(f"Gemini agotó modelos configurados. Último error: {last_error}")

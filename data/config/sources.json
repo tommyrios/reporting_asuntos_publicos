@@ -1,59 +1,44 @@
 {
   "google_news": {
     "enabled": true,
-    "request_delay_seconds": 0.4,
+    "locale": {"hl": "es-419", "gl": "AR", "ceid": "AR:es-419"},
+    "request_delay_seconds": 1.0,
     "max_retries": 1,
-    "backoff_seconds": 1.5,
-    "locale": {
-      "hl": "es-419",
-      "gl": "AR",
-      "ceid": "AR:es-419"
-    },
+    "backoff_seconds": 2.5,
     "queries": [
-      "Argentina gobierno Congreso politica",
-      "Argentina Casa Rosada gobernadores oposición",
-      "Argentina Senado Diputados proyecto de ley",
-      "Argentina bloques Congreso oficialismo oposición",
-      "Argentina gobernabilidad acuerdos políticos",
-      "Argentina sindicatos conflicto social gobierno",
-      "Argentina elecciones encuestas politica"
+      "Argentina gobierno Congreso oposición política",
+      "Argentina presidente Casa Rosada gobernadores Congreso",
+      "Argentina jefe de gabinete Diputados Senado",
+      "Argentina CGT sindicatos protesta gobierno",
+      "Argentina encuesta imagen presidencial opinión pública",
+      "Argentina peronismo oposición Kicillof Milei",
+      "Argentina inflación empleo tarifas gobierno política",
+      "Argentina corrupción justicia gobierno Congreso"
     ]
   },
   "gdelt": {
     "enabled": true,
     "max_records_per_query": 10,
-    "request_delay_seconds": 3.5,
-    "max_retries": 2,
+    "request_delay_seconds": 8.0,
+    "max_retries": 1,
     "backoff_seconds": 5.0,
     "queries": [
       "(Argentina OR argentino) (gobierno OR presidente OR Casa Rosada) (Congreso OR gobernadores OR oposición)",
-      "(Argentina OR argentino) (Senado OR Diputados OR Congreso) (ley OR dictamen OR quorum OR bloques)",
-      "(Argentina OR argentino) (gobernabilidad OR acuerdos OR coalición OR oficialismo OR oposición)"
+      "(Argentina OR argentino) (Congreso OR Diputados OR Senado OR Jefe de Gabinete)",
+      "(Argentina OR argentino) (CGT OR sindicatos OR protesta OR paro OR movilización)",
+      "(Argentina OR argentino) (encuesta OR imagen presidencial OR desaprobación OR opinión pública)",
+      "(Argentina OR argentino) (peronismo OR oposición OR Kicillof OR bloques)",
+      "(Argentina OR argentino) (inflación OR empleo OR tarifas OR recesión) (gobierno OR política)"
     ]
   },
   "rss_feeds": [
-    {
-      "name": "Fuentes institucionales - agregar RSS validado",
-      "url": "",
-      "enabled": false,
-      "category": "institucional",
-      "request_delay_seconds": 0.5,
-      "max_retries": 1,
-      "backoff_seconds": 1.5
-    }
+    {"enabled": false, "name": "Casa Rosada", "url": "https://www.casarosada.gob.ar/rss/noticias.xml", "category": "institucional"}
   ],
-  "priority_domains": [
-    "argentina.gob.ar",
-    "boletinoficial.gob.ar",
-    "diputados.gob.ar",
-    "senado.gob.ar",
-    "casarosada.gob.ar"
-  ],
-  "deduplication": {
-    "title_similarity_threshold": 0.88
+  "clustering": {
+    "title_similarity_threshold": 0.20
   },
   "selection": {
-    "max_selected_news": 4,
-    "min_relevance_score": 20
+    "min_clusters": 4,
+    "max_clusters": 8
   }
 }

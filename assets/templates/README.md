@@ -1,1 +1,0 @@
-La carpeta incluye una plantilla BBVA heredada del proyecto base. El builder actual genera las tres slides en Python para asegurar editabilidad y control de layout. La plantilla queda disponible para una futura etapa de ensamblado con layouts corporativos completos.

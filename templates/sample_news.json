@@ -1,47 +1,12 @@
 [
-  {
-    "title": "El Gobierno impulsa una agenda de reformas económicas en el Congreso",
-    "url": "https://example.com/reformas-economicas-congreso",
-    "source": "Medio Demo",
-    "published_at": "2026-01-10T12:00:00-03:00",
-    "summary": "La administración nacional busca avanzar con proyectos económicos durante el período legislativo, con foco en acuerdos con bloques aliados y gobernadores.",
-    "collector": "sample",
-    "query": "demo"
-  },
-  {
-    "title": "BCRA actualiza criterios regulatorios para entidades financieras",
-    "url": "https://example.com/bcra-regulacion-entidades",
-    "source": "Medio Demo",
-    "published_at": "2026-01-12T09:00:00-03:00",
-    "summary": "El Banco Central publicó lineamientos operativos con impacto potencial en la dinámica del sistema financiero.",
-    "collector": "sample",
-    "query": "demo"
-  },
-  {
-    "title": "Gobernadores condicionan apoyo legislativo a cambios fiscales",
-    "url": "https://example.com/gobernadores-cambios-fiscales",
-    "source": "Medio Demo",
-    "published_at": "2026-01-14T18:00:00-03:00",
-    "summary": "Mandatarios provinciales negocian modificaciones vinculadas a recursos fiscales y obras prioritarias.",
-    "collector": "sample",
-    "query": "demo"
-  },
-  {
-    "title": "La oposición busca unificar postura frente al paquete de reformas",
-    "url": "https://example.com/oposicion-paquete-reformas",
-    "source": "Medio Demo",
-    "published_at": "2026-01-15T10:30:00-03:00",
-    "summary": "Bloques opositores evalúan una estrategia común para incidir en el tratamiento parlamentario de iniciativas oficiales.",
-    "collector": "sample",
-    "query": "demo"
-  },
-  {
-    "title": "Debate por cambios impositivos con impacto en empresas",
-    "url": "https://example.com/cambios-impositivos-empresas",
-    "source": "Medio Demo",
-    "published_at": "2026-01-16T08:00:00-03:00",
-    "summary": "Referentes empresariales siguen el avance de modificaciones tributarias que podrían alterar costos y decisiones de inversión.",
-    "collector": "sample",
-    "query": "demo"
-  }
+  {"title": "El Jefe de Gabinete expuso en Diputados en una sesión cruzada por fuertes cuestionamientos", "url": "https://example.com/1", "source": "Medio A", "published_at": "2026-05-01T10:00:00-03:00", "summary": "La presentación del Jefe de Gabinete ante Diputados concentró el debate político de la semana, con críticas opositoras y defensa cerrada del oficialismo."},
+  {"title": "Diputados fue escenario de una exposición tensa del Jefe de Gabinete", "url": "https://example.com/2", "source": "Medio B", "published_at": "2026-05-01T12:00:00-03:00", "summary": "El oficialismo buscó ordenar la sesión, mientras la oposición cuestionó la gestión y llevó al recinto denuncias por presuntos casos de corrupción."},
+  {"title": "La CGT convocó una movilización con eje en salarios y endeudamiento", "url": "https://example.com/3", "source": "Medio C", "published_at": "2026-04-30T09:00:00-03:00", "summary": "La protesta sindical volvió a tomar centralidad en la calle con reclamos asociados a ingresos, empleo y endeudamiento familiar."},
+  {"title": "La protesta sindical vuelve a la calle con una marcha de la CGT", "url": "https://example.com/4", "source": "Medio D", "published_at": "2026-04-30T11:00:00-03:00", "summary": "La convocatoria gremial mostró un nuevo nivel de organización de la conflictividad social frente al Gobierno."},
+  {"title": "Encuestas muestran caída de la imagen presidencial y mayor desaprobación", "url": "https://example.com/5", "source": "Medio E", "published_at": "2026-04-29T08:30:00-03:00", "summary": "Diversas mediciones ubican la desaprobación del Gobierno en niveles elevados, con preocupación por tarifas, ingresos y poder adquisitivo."},
+  {"title": "La opinión pública registra deterioro del apoyo al Gobierno", "url": "https://example.com/6", "source": "Medio F", "published_at": "2026-04-29T13:00:00-03:00", "summary": "El malestar económico aparece como factor dominante detrás de la caída en los indicadores de imagen presidencial."},
+  {"title": "El peronismo busca reordenarse con mayor proyección de gobernadores", "url": "https://example.com/7", "source": "Medio G", "published_at": "2026-04-28T10:00:00-03:00", "summary": "La oposición muestra movimientos de reorganización, aunque todavía sin una estrategia común ni liderazgo consolidado."},
+  {"title": "Kicillof gana visibilidad nacional mientras la oposición ensaya reacomodamientos", "url": "https://example.com/8", "source": "Medio H", "published_at": "2026-04-28T14:00:00-03:00", "summary": "Los movimientos del peronismo conviven con tensiones internas y falta de articulación estratégica frente al oficialismo."},
+  {"title": "La inflación y la recesión condicionan el clima político", "url": "https://example.com/9", "source": "Medio I", "published_at": "2026-04-27T09:00:00-03:00", "summary": "El Gobierno mantiene el foco en la desaceleración inflacionaria, pero la caída del consumo y las dificultades de empleo ganan peso político."},
+  {"title": "Empleo, inflación y actividad económica ordenan la conversación pública", "url": "https://example.com/10", "source": "Medio J", "published_at": "2026-04-27T18:00:00-03:00", "summary": "La economía no desordena por completo la escena política, pero explica el clima social de la quincena."}
 ]

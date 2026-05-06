@@ -1,197 +1,154 @@
-# Reporting Asuntos Públicos · BBVA
+# Reporte AAPP - Apuntes políticos en Google Docs
 
-Pipeline para generar un **borrador quincenal editable** del informe de contexto político de Asuntos Públicos.
+Pipeline para generar una nota interna de actualidad política en formato Google Docs, inspirada en el modelo **Apuntes políticos** de la Dirección de Relaciones Institucionales.
 
-El output principal es un **PPTX editable de 3 slides**, adaptado a la identidad corporativa BBVA:
+## Qué hace
 
-1. Portada BBVA.
-2. Análisis ejecutivo de coyuntura.
-3. Contraportada BBVA.
+1. Releva noticias políticas del período configurado (default: últimos 15 días).
+2. Agrupa notas repetidas en **clusters de hechos políticos**. El foco no es el medio, sino la pieza de información.
+3. Prioriza entre 4 y 8 clusters por recurrencia, centralidad política y recencia.
+4. Usa Gemini para redactar una nota interna con tono politológico.
+5. Crea un Google Doc editable con Google Docs API.
+6. Comparte el archivo con Drive API.
+7. Envía el enlace por Gmail API o SMTP.
 
-El objetivo no es reemplazar el criterio editorial del equipo, sino entregar un primer insumo ordenado para revisión, edición y ajuste de foco.
+## Formato editorial
 
-
-## Version 1.1 - Ajustes incorporados
-
-- Estilo visual alineado a la plantilla corporativa BBVA: Electric Blue, Serene Blue, Sand, Source Serif 4 para titulares y Lato para cuerpo.
-- Layout ejecutivo con portada oscura, slide de analisis en fondo Sand y tarjetas tipo bento editables.
-- Control de extension para evitar texto cortado en PPTX.
-- GDELT con menor carga por corrida, pausas entre requests y retry con backoff para reducir errores 429.
-- Prompts mas restrictivos para bullets breves y vision ejecutiva compatible con una sola slide.
-
-## Flujo funcional
+El documento replica esta estructura:
 
 ```text
-GitHub Actions
-   ↓
-news_collector.py
-   ↓
-deduplicator.py
-   ↓
-relevance_scorer.py
-   ↓
-political_analyzer.py + Gemini API
-   ↓
-report_contract.json
-   ↓
-pptx_builder.py
-   ↓
-send_gmail.py
-```
+DIRECCIÓN DE RELACIONES INSTITUCIONALES        NOTA INTERNA
 
-## Stack
+Apuntes políticos #X
+Fecha
 
-- Python 3.11+
-- GitHub Actions para ejecución programada
-- Gemini API para síntesis y visión ejecutiva
-- Google News RSS / GDELT con backoff / RSS institucionales para ingesta
-- Gmail API para envío
-- python-pptx para generación del PPTX
+[Párrafo inicial de lectura política]
 
-## Estructura
+─ [Tesis política 1]. Desarrollo analítico.
+─ [Tesis política 2]. Desarrollo analítico.
+─ [Tesis política 3]. Desarrollo analítico.
+─ [Tesis política 4]. Desarrollo analítico.
 
-```text
-reporting_asuntos_publicos/
-├─ .github/workflows/aapp-report.yml
-├─ assets/
-│  ├─ brand/
-│  └─ templates/
-├─ data/
-│  ├─ config/sources.json
-│  ├─ history/used_news.json
-│  ├─ raw_news/
-│  ├─ normalized_news/
-│  └─ selected_news/
-├─ output/reports/
-├─ prompts/
-│  ├─ political_analysis.txt
-│  └─ style_gonza.txt
-├─ scripts/
-│  ├─ news_collector.py
-│  ├─ deduplicator.py
-│  ├─ relevance_scorer.py
-│  ├─ political_analyzer.py
-│  ├─ pptx_builder.py
-│  ├─ send_gmail.py
-│  └─ run_scheduled_report.py
-└─ tests/
-```
+─ Claves prospectivas
+  ○ Clave 1
+  ○ Clave 2
+  ○ Clave 3
+  ○ Clave 4
 
-## Instalación local
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-En Windows:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-## Smoke test sin internet ni Gemini
-
-Genera un PPTX de muestra con noticias mockeadas:
-
-```bash
-python scripts/generate_sample_report.py
-```
-
-Salida esperada:
-
-```text
-output/reports/sample/report_aapp_sample.pptx
-```
-
-## Ejecución local real
-
-```bash
-python scripts/run_scheduled_report.py --period-days 15
-```
-
-Para enviar por Gmail API:
-
-```bash
-python scripts/run_scheduled_report.py --period-days 15 --send-email
-```
-
-Para usar un set de noticias local:
-
-```bash
-python scripts/run_scheduled_report.py --input-news templates/sample_news.json --disable-gemini
+Gracias!
+DIRECCIÓN DE RELACIONES INSTITUCIONALES
 ```
 
 ## Secrets requeridos
 
+### Google personal / Google Pro
+
+Habilitar en Google Cloud:
+
+- Google Docs API
+- Google Drive API
+- Gmail API, solo si `EMAIL_DELIVERY_MODE=gmail_api`
+
+Scopes OAuth:
+
 ```text
-GEMINI_API_KEY
-GEMINI_MODEL
-GEMINI_FALLBACK_MODELS
+https://www.googleapis.com/auth/documents
+https://www.googleapis.com/auth/drive.file
+https://www.googleapis.com/auth/gmail.send
+```
+
+Secrets:
+
+```text
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
 GOOGLE_REFRESH_TOKEN
-GOOGLE_TOKEN_URI
+GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
+GEMINI_API_KEY
+```
+
+Opcionales:
+
+```text
+GOOGLE_DOCS_FOLDER_ID
+GOOGLE_DOCS_SHARE_WITH
 EMAIL_FROM
 EMAIL_DESTINATARIO
 EMAIL_CC
 EMAIL_BCC
 ```
 
-Variables opcionales:
+Variables recomendadas:
 
 ```text
-REPORT_TIMEZONE=America/Argentina/Buenos_Aires
-AAPP_MAX_NEWS=120
-AAPP_SELECTED_NEWS=12
-AAPP_DISABLE_GEMINI=false
-AAPP_STRICT_LLM=false
-SEND_EMAIL=true
+GOOGLE_DOCS_SHARE_ROLE=writer
+EMAIL_DELIVERY_MODE=gmail_api
+SCHEDULE_ANCHOR_DATE=2026-05-06
+RUN_EVERY_DAYS=14
+AAPP_MIN_CLUSTERS=4
+AAPP_MAX_CLUSTERS=8
 ```
 
-## Configuración de fuentes
+## Generar refresh token
 
-El archivo `data/config/sources.json` define:
-
-- búsquedas en Google News RSS;
-- queries en GDELT;
-- feeds RSS institucionales;
-- dominios prioritarios;
-- parámetros de deduplicación y selección.
-
-Para el MVP, conviene mantener pocas queries, de alta precisión. El pipeline prioriza impacto político, regulatorio y financiero, no volumen de titulares.
-
-## Contrato de salida
-
-Cada ejecución genera:
-
-```text
-output/reports/<fecha>/report_aapp_<fecha>.pptx
-output/reports/<fecha>/report_contract.json
-output/reports/<fecha>/selected_news.json
-output/reports/<fecha>/sources.json
-output/reports/<fecha>/run_log.json
-```
-
-El PPTX es editable y está pensado como insumo interno. Si se requiere distribución externa, se puede exportar a PDF como paso posterior.
-
-## Guardrails editoriales
-
-- Gemini no inventa hechos: recibe un set de noticias seleccionado por el pipeline.
-- El historial evita reutilizar URLs y clusters ya trabajados.
-- La memoria de estilo está separada de la memoria de contenido.
-- Si no hay suficiente información, el reporte lo explicita en vez de completar con supuestos.
-- La slide prioriza lectura ejecutiva, implicancias para BBVA y focos de seguimiento.
-
-## Tests
+Local:
 
 ```bash
-python -m unittest discover -s tests -p 'test*.py'
+export GOOGLE_CLIENT_ID="..."
+export GOOGLE_CLIENT_SECRET="..."
+python scripts/generate_oauth_token.py
 ```
 
-## GitHub Actions
+Copiar el `refresh_token` a GitHub Secrets como `GOOGLE_REFRESH_TOKEN`.
 
-El workflow corre los días 1 y 15 de cada mes, con opción manual (`workflow_dispatch`). El cron puede ajustarse cuando el equipo defina la fecha exacta de cierre editorial.
+## Ejecución local sin APIs
+
+```bash
+python -m pip install -r requirements.txt
+python -m unittest discover -s tests -p 'test*.py'
+python scripts/generate_sample_report.py
+```
+
+Esto genera un preview local en:
+
+```text
+output/reports/sample/sample_preview.txt
+```
+
+## Ejecución local real
+
+Con variables de entorno configuradas:
+
+```bash
+python scripts/run_scheduled_report.py --period-days 15 --send-email
+```
+
+Para probar sin crear Google Doc:
+
+```bash
+python scripts/run_scheduled_report.py --period-days 15 --no-create-doc --disable-gemini
+```
+
+## Programación
+
+El workflow corre los miércoles a la noche de Argentina mediante cron UTC:
+
+```yaml
+- cron: '0 1 * * 4'
+```
+
+Eso equivale aproximadamente a jueves 01:00 UTC / miércoles 22:00 ART. La ejecución quincenal se controla con `scripts/should_run.py`, usando:
+
+```text
+SCHEDULE_ANCHOR_DATE
+RUN_EVERY_DAYS=14
+```
+
+## Memoria
+
+El pipeline no usa memoria de noticias entre ejecuciones. Solo conserva archivos de salida para trazabilidad. El tono y formato viven en:
+
+```text
+prompts/style_apuntes_politicos.txt
+prompts/political_report.txt
+```

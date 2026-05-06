@@ -9,28 +9,26 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from config import (
+    CLUSTERS_DIR,
     DEFAULT_PERIOD_DAYS,
-    HISTORY_PATH,
-    MAX_NEWS,
-    NORMALIZED_NEWS_DIR,
+    MAX_CLUSTERS,
+    MAX_RAW_NEWS,
+    MIN_CLUSTERS,
+    NORMALIZED_DIR,
     RAW_NEWS_DIR,
+    REPORTS_DATA_DIR,
+    REPORTS_OUTPUT_DIR,
     REPORT_TIMEZONE,
-    REPORTS_DIR,
-    SELECTED_NEWS,
-    SELECTED_NEWS_DIR,
     SOURCES_CONFIG_PATH,
     ensure_project_dirs,
 )
-from deduplicator import deduplicate_news
-from history_manager import filter_used_news, load_history, update_history
+from google_docs_builder import create_google_doc
+from news_clusterer import cluster_news, select_top_clusters
 from news_collector import collect_news
-from news_models import news_from_dicts, news_to_dicts
-from political_analyzer import generate_political_analysis
-from pptx_builder import create_aapp_pptx
-from relevance_scorer import score_news, select_relevant_news
-from report_contract import build_report_contract, validate_report_contract
-from send_email import send_email_with_attachments
-from utils import parse_bool, read_json, write_json
+from news_models import clusters_to_dicts, news_from_dicts, news_to_dicts
+from political_analyzer import generate_political_report
+from send_email import send_email
+from utils import format_spanish_date, parse_bool, read_json, write_json
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +41,12 @@ def _period(period_days: int, timezone_name: str) -> tuple[dict[str, str], datet
     tz = ZoneInfo(timezone_name)
     end = datetime.now(tz)
     start = end - timedelta(days=period_days)
-    label = f"{start.strftime('%d/%m/%Y')} al {end.strftime('%d/%m/%Y')}"
     return (
         {
             "start": start.isoformat(),
             "end": end.isoformat(),
-            "label": label,
+            "label": f"{start.strftime('%d/%m/%Y')} al {end.strftime('%d/%m/%Y')}",
+            "date_label": format_spanish_date(end),
             "timezone": timezone_name,
             "period_days": str(period_days),
         },
@@ -57,8 +55,10 @@ def _period(period_days: int, timezone_name: str) -> tuple[dict[str, str], datet
     )
 
 
-def _load_input_news(path: Path):
-    payload = read_json(path, default=[])
+def _load_input_news(path: str | None):
+    if not path:
+        return None
+    payload = read_json(Path(path), default=[])
     if not isinstance(payload, list):
         raise RuntimeError(f"El archivo de noticias debe contener una lista: {path}")
     return news_from_dicts(payload)
@@ -68,123 +68,140 @@ def run(args: argparse.Namespace) -> dict:
     ensure_project_dirs()
     period, start, end = _period(args.period_days, args.timezone)
     run_stamp = end.strftime("%Y%m%d_%H%M")
-    report_id = f"aapp_{run_stamp}"
-    report_dir = REPORTS_DIR / report_id
-    report_dir.mkdir(parents=True, exist_ok=True)
+    report_id = f"apuntes_politicos_{run_stamp}"
+    out_dir = REPORTS_OUTPUT_DIR / report_id
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info("event=run_started report_id=%s period=%s", report_id, period["label"])
 
-    if args.input_news:
-        raw_items = _load_input_news(Path(args.input_news))
-    else:
+    raw_items = _load_input_news(args.input_news)
+    if raw_items is None:
         raw_items = collect_news(SOURCES_CONFIG_PATH, start=start, end=end, period_days=args.period_days)
-
-    if len(raw_items) > args.max_news:
-        raw_items = raw_items[: args.max_news]
+    raw_items = raw_items[: args.max_raw_news]
 
     raw_path = RAW_NEWS_DIR / f"{report_id}.json"
     write_json(raw_path, news_to_dicts(raw_items))
 
-    config = read_json(SOURCES_CONFIG_PATH, default={}) or {}
-    threshold = float(config.get("deduplication", {}).get("title_similarity_threshold", 0.88))
-    unique_items, duplicate_items = deduplicate_news(raw_items, title_similarity_threshold=threshold)
+    sources_cfg = read_json(SOURCES_CONFIG_PATH, default={}) or {}
+    similarity_threshold = float(sources_cfg.get("clustering", {}).get("title_similarity_threshold", 0.20))
+    clusters = cluster_news(raw_items, similarity_threshold=similarity_threshold, reference=end)
+    selected_clusters = select_top_clusters(clusters, min_clusters=args.min_clusters, max_clusters=args.max_clusters)
 
-    history = load_history(HISTORY_PATH)
-    fresh_items, used_items = filter_used_news(unique_items, history)
+    clusters_path = CLUSTERS_DIR / f"{report_id}.json"
+    selected_clusters_path = out_dir / "selected_clusters.json"
+    write_json(clusters_path, clusters_to_dicts(clusters))
+    write_json(selected_clusters_path, clusters_to_dicts(selected_clusters))
 
-    scored = score_news(fresh_items, reference=end)
-    selection_cfg = config.get("selection", {})
-    max_selected = int(args.selected_news or selection_cfg.get("max_selected_news", SELECTED_NEWS))
-    min_score = int(selection_cfg.get("min_relevance_score", 20))
-    selected = select_relevant_news(scored, max_items=max_selected, min_score=min_score)
-
-    normalized_path = NORMALIZED_NEWS_DIR / f"{report_id}.json"
-    selected_path = SELECTED_NEWS_DIR / f"{report_id}.json"
-    write_json(normalized_path, news_to_dicts(scored))
-    write_json(selected_path, news_to_dicts(selected))
-
-    analysis = generate_political_analysis(selected, period=period, disable_gemini=args.disable_gemini)
-    stats = {
-        "raw_news_count": len(raw_items),
-        "unique_news_count": len(unique_items),
-        "duplicate_news_count": len(duplicate_items),
-        "previously_used_count": len(used_items),
-        "scored_news_count": len(scored),
-        "selected_news_count": len(selected),
-        "min_relevance_score": min_score,
+    report = generate_political_report(selected_clusters, period=period, disable_gemini=args.disable_gemini)
+    report_contract = {
+        "report_id": report_id,
+        "period": period,
+        "report": report,
+        "stats": {
+            "raw_news_count": len(raw_items),
+            "cluster_count": len(clusters),
+            "selected_cluster_count": len(selected_clusters),
+            "min_clusters": args.min_clusters,
+            "max_clusters": args.max_clusters,
+        },
+        "selected_clusters": clusters_to_dicts(selected_clusters),
     }
-    report = build_report_contract(report_id, period, selected, analysis, stats)
-    report = validate_report_contract(report)
 
-    contract_path = report_dir / "report_contract.json"
-    sources_path = report_dir / "sources.json"
-    selected_report_path = report_dir / "selected_news.json"
-    log_path = report_dir / "run_log.json"
-    pptx_path = report_dir / f"report_aapp_{run_stamp}.pptx"
+    report_data_path = REPORTS_DATA_DIR / f"{report_id}.json"
+    contract_path = out_dir / "report_contract.json"
+    write_json(report_data_path, report_contract)
+    write_json(contract_path, report_contract)
 
-    write_json(contract_path, report)
-    write_json(sources_path, news_to_dicts(raw_items))
-    write_json(selected_report_path, news_to_dicts(selected))
-    create_aapp_pptx(report, pptx_path)
+    local_preview_path = out_dir / "preview.txt"
+    local_preview_path.write_text(_preview_text(report), encoding="utf-8")
+
+    doc_result = None
+    if args.create_doc:
+        doc_result = create_google_doc(report, report_id=report_id)
+        report_contract["google_doc"] = doc_result
+        write_json(contract_path, report_contract)
+
+    email_result = None
+    should_send = args.send_email or parse_bool(os.getenv("SEND_EMAIL"), False)
+    if should_send:
+        if not doc_result:
+            raise RuntimeError("Para enviar email se requiere crear el Google Doc. Usá --create-doc o CREATE_GOOGLE_DOC=true.")
+        subject = f"{report['title']} - {report.get('date_label', period['date_label'])}"
+        body = (
+            "Hola,\n\n"
+            "Comparto el enlace al borrador de Apuntes políticos:\n"
+            f"{doc_result['document_url']}\n\n"
+            "Saludos."
+        )
+        email_result = send_email(subject, body)
+        report_contract["email_result"] = email_result
+        write_json(contract_path, report_contract)
 
     log_payload = {
         "report_id": report_id,
         "period": period,
         "paths": {
-            "pptx": str(pptx_path),
+            "raw_news": str(raw_path),
+            "clusters": str(clusters_path),
+            "selected_clusters": str(selected_clusters_path),
             "contract": str(contract_path),
-            "sources": str(sources_path),
-            "selected_news": str(selected_report_path),
+            "preview": str(local_preview_path),
         },
-        "stats": stats,
-        "email_sent": False,
+        "google_doc": doc_result,
+        "email_result": email_result,
+        "stats": report_contract["stats"],
     }
-
-    if args.update_history and selected:
-        update_history(HISTORY_PATH, report_id, selected, metadata={"period": period, "stats": stats})
-
-    should_send = args.send_email or parse_bool(os.environ.get("SEND_EMAIL"), False)
-    if should_send:
-        subject = f"Informe quincenal AAPP - {period['label']}"
-        body = (
-            "Hola,\n\n"
-            "Adjunto el borrador editable del informe quincenal de Asuntos Públicos. "
-            "Incluye el PPTX y los archivos de trazabilidad de fuentes seleccionadas.\n\n"
-            "Saludos."
-        )
-        result = send_email_with_attachments(subject, body, attachments=[pptx_path, contract_path, selected_report_path])
-        log_payload["email_sent"] = True
-        log_payload["gmail_result"] = result
-
+    log_path = out_dir / "run_log.json"
     write_json(log_path, log_payload)
-    logger.info("event=run_finished pptx=%s", pptx_path)
+    logger.info("event=run_finished report_id=%s doc_url=%s", report_id, (doc_result or {}).get("document_url", ""))
     return log_payload
 
 
+def _preview_text(report: dict) -> str:
+    lines = [
+        "DIRECCIÓN DE RELACIONES INSTITUCIONALES        NOTA INTERNA",
+        "",
+        report.get("title", "Apuntes políticos"),
+        report.get("date_label", ""),
+        "",
+        report.get("lead", ""),
+        "",
+    ]
+    for item in report.get("developments", []):
+        headline = item.get("headline", "").rstrip(".")
+        lines.append(f"─ {headline}. {item.get('analysis', '')}")
+        lines.append("")
+    lines.append("─ Claves prospectivas")
+    for key in report.get("prospective_keys", []):
+        lines.append(f"  ○ {key}")
+    lines.extend(["", "Gracias!", "DIRECCIÓN DE RELACIONES INSTITUCIONALES"])
+    return "\n".join(lines)
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Genera el reporte quincenal de Asuntos Públicos")
+    parser = argparse.ArgumentParser(description="Genera Apuntes políticos en Google Docs")
     parser.add_argument("--period-days", type=int, default=DEFAULT_PERIOD_DAYS)
     parser.add_argument("--timezone", default=REPORT_TIMEZONE)
-    parser.add_argument("--input-news", help="Archivo JSON local de noticias normalizadas")
-    parser.add_argument("--max-news", type=int, default=MAX_NEWS)
-    parser.add_argument("--selected-news", type=int, default=SELECTED_NEWS)
-    parser.add_argument("--send-email", action="store_true")
+    parser.add_argument("--input-news", help="Archivo JSON local de noticias crudas/normalizadas")
+    parser.add_argument("--max-raw-news", type=int, default=MAX_RAW_NEWS)
+    parser.add_argument("--min-clusters", type=int, default=MIN_CLUSTERS)
+    parser.add_argument("--max-clusters", type=int, default=MAX_CLUSTERS)
     parser.add_argument("--disable-gemini", action="store_true")
-    parser.add_argument("--no-history-update", dest="update_history", action="store_false")
-    parser.set_defaults(update_history=True)
+    parser.add_argument("--create-doc", action="store_true", default=parse_bool(os.getenv("CREATE_GOOGLE_DOC"), True))
+    parser.add_argument("--no-create-doc", dest="create_doc", action="store_false")
+    parser.add_argument("--send-email", action="store_true")
     return parser
 
 
 def main() -> None:
     _setup_logging()
-    parser = build_arg_parser()
-    args = parser.parse_args()
+    args = build_arg_parser().parse_args()
     try:
         result = run(args)
     except Exception as exc:
         logger.exception("event=run_failed reason=%s", exc)
         sys.exit(1)
-    print(result["paths"]["pptx"])
+    print((result.get("google_doc") or {}).get("document_url") or result["paths"]["preview"])
 
 
 if __name__ == "__main__":
