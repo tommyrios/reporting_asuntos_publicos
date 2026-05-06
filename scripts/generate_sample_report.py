@@ -9,6 +9,7 @@ from news_clusterer import cluster_news, select_top_clusters
 from news_models import news_from_dicts
 from political_analyzer import generate_political_report
 from run_scheduled_report import _preview_text
+from google_docs_builder import create_local_docx
 from utils import format_spanish_date, read_json, write_json
 
 
@@ -36,7 +37,8 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     write_json(out / "sample_contract.json", {"period": period, "report": report, "clusters": [c.to_dict() for c in clusters]})
     (out / "sample_preview.txt").write_text(_preview_text(report), encoding="utf-8")
-    print(out / "sample_preview.txt")
+    docx_path = create_local_docx(report, report_id="sample", output_dir=out)
+    print(docx_path)
 
 
 if __name__ == "__main__":

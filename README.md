@@ -8,9 +8,9 @@ Pipeline para generar una nota interna de actualidad política en formato Google
 2. Agrupa notas repetidas en **clusters de hechos políticos**. El foco no es el medio, sino la pieza de información.
 3. Prioriza entre 4 y 8 clusters por recurrencia, centralidad política y recencia.
 4. Usa Gemini para redactar una nota interna con tono politológico.
-5. Crea un Google Doc editable con Google Docs API.
-6. Comparte el archivo con Drive API.
-7. Envía el enlace por SMTP.
+5. Genera un `.docx` local con estilo BBVA, incluyendo `assets/brand/logo_bbva_white.png` como imagen real.
+6. Sube ese `.docx` a Drive y lo convierte en **Google Docs editable**.
+7. Comparte el documento con Drive API y envía el enlace por SMTP.
 
 ## Formato editorial
 
@@ -65,11 +65,24 @@ GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
 GEMINI_API_KEY
 ```
 
-Opcionales / envío SMTP:
+Google Docs / Drive:
 
 ```text
 GOOGLE_DOCS_FOLDER_ID
 GOOGLE_DOCS_SHARE_WITH
+```
+
+Opcional para intentar transferencia de propiedad:
+
+```text
+GOOGLE_DOCS_TRANSFER_OWNERSHIP_TO
+```
+
+La transferencia puede fallar por restricciones de Google Workspace o por intentar transferir desde una cuenta personal hacia un dominio corporativo. En ese caso el pipeline no se cae: deja el documento compartido como editor y registra el warning.
+
+Envío SMTP:
+
+```text
 EMAIL_FROM
 EMAIL_DESTINATARIO
 EMAIL_CC
@@ -110,10 +123,12 @@ python -m unittest discover -s tests -p 'test*.py'
 python scripts/generate_sample_report.py
 ```
 
-Esto genera un preview local en:
+Esto genera:
 
 ```text
+output/reports/sample/sample.docx
 output/reports/sample/sample_preview.txt
+output/reports/sample/sample_contract.json
 ```
 
 ## Ejecución local real

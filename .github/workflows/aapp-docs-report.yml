@@ -98,6 +98,7 @@ jobs:
           GOOGLE_DOCS_SHARE_WITH: ${{ secrets.GOOGLE_DOCS_SHARE_WITH }}
           GOOGLE_DOCS_SHARE_ROLE: ${{ vars.GOOGLE_DOCS_SHARE_ROLE || 'writer' }}
           GOOGLE_DOCS_ANYONE_WITH_LINK: ${{ vars.GOOGLE_DOCS_ANYONE_WITH_LINK || 'false' }}
+          GOOGLE_DOCS_TRANSFER_OWNERSHIP_TO: ${{ secrets.GOOGLE_DOCS_TRANSFER_OWNERSHIP_TO }}
 
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
