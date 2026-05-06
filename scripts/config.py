@@ -20,6 +20,7 @@ DEFAULT_PERIOD_DAYS = int(os.getenv("REPORT_PERIOD_DAYS", "15"))
 MAX_RAW_NEWS = int(os.getenv("AAPP_MAX_RAW_NEWS", "160"))
 MIN_CLUSTERS = int(os.getenv("AAPP_MIN_CLUSTERS", "4"))
 MAX_CLUSTERS = int(os.getenv("AAPP_MAX_CLUSTERS", "8"))
+REPORT_PERIOD_MODE = os.getenv("REPORT_PERIOD_MODE", "half_month_current")
 
 
 def ensure_project_dirs() -> None:

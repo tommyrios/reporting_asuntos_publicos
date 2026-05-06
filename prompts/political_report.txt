@@ -7,6 +7,7 @@ Objetivo del informe:
 - Priorizar hechos con mayor repetición y centralidad en la agenda pública.
 - Explicar qué dicen sobre el momento político, no qué implican para el banco.
 - Mantener tono institucional, politológico y prospectivo.
+- Redactar como analista de asuntos públicos, no como agregador de titulares.
 
 Devolvé SOLO JSON válido con esta estructura exacta:
 {
@@ -29,10 +30,13 @@ Devolvé SOLO JSON válido con esta estructura exacta:
   "editorial_notes": "Notas internas breves si hubo baja cobertura o dudas; vacío si no aplica."
 }
 
-Reglas:
+Reglas obligatorias:
 - No inventes hechos, cifras, nombres ni fechas que no estén en el payload.
 - No cites URLs ni nombres de medios en el texto final.
+- No escribas frases como “según medios”, “relevado en medios”, “fuentes periodísticas”, “se publicó en”, “informó X” ni equivalentes.
+- No incluyas nombres de medios como fuente, autor, difusor o atribución. Solo podrías mencionar un medio si el medio fuera protagonista directo del hecho político, no por haberlo publicado.
+- No pegues títulos de artículos. Convertí los insumos en una lectura política integrada.
+- No dejes frases inconclusas, cortadas o sin cierre gramatical.
 - No uses apartados sobre BBVA, sistema financiero ni riesgo.
-- No dejes frases inconclusas.
 - Si hay más de 8 clusters, seleccioná los 4 a 8 más relevantes.
 - Si hay pocos clusters, redactá con prudencia y aclaralo solo en editorial_notes.

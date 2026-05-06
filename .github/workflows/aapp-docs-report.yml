@@ -15,6 +15,10 @@ on:
         description: 'Cantidad de dias hacia atras a relevar'
         required: false
         default: '15'
+      period_mode:
+        description: 'Modo de periodo: half_month_current, half_month_completed o sliding'
+        required: false
+        default: 'half_month_current'
       send_email:
         description: 'Enviar email con link al finalizar (true/false)'
         required: false
@@ -70,6 +74,7 @@ jobs:
         env:
           REPORT_TIMEZONE: America/Argentina/Buenos_Aires
           PERIOD_DAYS: ${{ github.event.inputs.period_days || vars.REPORT_PERIOD_DAYS || '15' }}
+          REPORT_PERIOD_MODE: ${{ github.event.inputs.period_mode || vars.REPORT_PERIOD_MODE || 'half_month_current' }}
           SEND_EMAIL: ${{ github.event.inputs.send_email || 'true' }}
           CREATE_GOOGLE_DOC: ${{ github.event.inputs.create_doc || 'true' }}
           AAPP_DISABLE_GEMINI: ${{ github.event.inputs.disable_gemini || 'false' }}
@@ -109,7 +114,7 @@ jobs:
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
         run: |
-          ARGS="--period-days ${PERIOD_DAYS} --max-raw-news ${AAPP_MAX_RAW_NEWS} --min-clusters ${AAPP_MIN_CLUSTERS} --max-clusters ${AAPP_MAX_CLUSTERS}"
+          ARGS="--period-days ${PERIOD_DAYS} --period-mode ${REPORT_PERIOD_MODE} --max-raw-news ${AAPP_MAX_RAW_NEWS} --min-clusters ${AAPP_MIN_CLUSTERS} --max-clusters ${AAPP_MAX_CLUSTERS}"
           if [ "${SEND_EMAIL}" = "true" ]; then ARGS="$ARGS --send-email"; fi
           if [ "${AAPP_DISABLE_GEMINI}" = "true" ]; then ARGS="$ARGS --disable-gemini"; fi
           if [ "${CREATE_GOOGLE_DOC}" = "false" ]; then ARGS="$ARGS --no-create-doc"; fi

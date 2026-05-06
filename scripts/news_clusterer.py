@@ -7,6 +7,7 @@ from difflib import SequenceMatcher
 from urllib.parse import urlparse
 
 from news_models import NewsCluster, NewsItem
+from editorial_guard import strip_media_terms, sanitize_final_text
 from utils import compact_hash, normalize_text, parse_datetime, truncate
 
 STOPWORDS = {
@@ -105,7 +106,7 @@ def _latest_first(items: list[NewsItem]) -> list[NewsItem]:
 
 
 def _representative_title(items: list[NewsItem]) -> str:
-    titles = [item.title.strip() for item in items if item.title.strip()]
+    titles = [strip_media_terms(item.title).strip() for item in items if item.title.strip()]
     if not titles:
         return "Hecho político sin título"
     # Prefer the title with more overlap with the rest of the cluster.
@@ -122,10 +123,10 @@ def _cluster_summary(items: list[NewsItem], max_chars: int = 900) -> str:
     snippets = []
     for item in _latest_first(items)[:6]:
         if item.summary:
-            snippets.append(item.summary)
+            snippets.append(strip_media_terms(item.summary))
         elif item.title:
-            snippets.append(item.title)
-    return truncate(" ".join(snippets), max_chars)
+            snippets.append(strip_media_terms(item.title))
+    return sanitize_final_text(" ".join(snippets), max_chars=max_chars)
 
 
 def _score_cluster(cluster: NewsCluster, reference: datetime | None = None) -> float:
@@ -189,7 +190,7 @@ def cluster_news(items: list[NewsItem], similarity_threshold: float = 0.20, refe
             article_count=len(group),
             first_seen=first_seen,
             last_seen=last_seen,
-            representative_titles=[item.title for item in group[:6]],
+            representative_titles=[strip_media_terms(item.title) for item in group[:6]],
             urls=[item.url for item in group[:10] if item.url],
         )
         cluster.score = _score_cluster(cluster, reference=reference)

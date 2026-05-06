@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -19,6 +19,7 @@ from config import (
     REPORTS_DATA_DIR,
     REPORTS_OUTPUT_DIR,
     REPORT_TIMEZONE,
+    REPORT_PERIOD_MODE,
     SOURCES_CONFIG_PATH,
     ensure_project_dirs,
 )
@@ -27,6 +28,7 @@ from news_clusterer import cluster_news, select_top_clusters
 from news_collector import collect_news
 from news_models import clusters_to_dicts, news_from_dicts, news_to_dicts
 from political_analyzer import generate_political_report
+from report_numbering import resolve_period
 from send_email import send_email
 from utils import format_spanish_date, parse_bool, read_json, write_json
 
@@ -37,22 +39,13 @@ def _setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
-def _period(period_days: int, timezone_name: str) -> tuple[dict[str, str], datetime, datetime]:
+def _period(period_days: int, timezone_name: str, mode: str = REPORT_PERIOD_MODE) -> tuple[dict[str, str], datetime, datetime]:
     tz = ZoneInfo(timezone_name)
-    end = datetime.now(tz)
-    start = end - timedelta(days=period_days)
-    return (
-        {
-            "start": start.isoformat(),
-            "end": end.isoformat(),
-            "label": f"{start.strftime('%d/%m/%Y')} al {end.strftime('%d/%m/%Y')}",
-            "date_label": format_spanish_date(end),
-            "timezone": timezone_name,
-            "period_days": str(period_days),
-        },
-        start,
-        end,
-    )
+    now = datetime.now(tz)
+    period, start, end = resolve_period(now, period_days=period_days, mode=mode)
+    period["date_label"] = format_spanish_date(now)
+    period["timezone"] = timezone_name
+    return period, start, end
 
 
 def _load_input_news(path: str | None):
@@ -66,7 +59,7 @@ def _load_input_news(path: str | None):
 
 def run(args: argparse.Namespace) -> dict:
     ensure_project_dirs()
-    period, start, end = _period(args.period_days, args.timezone)
+    period, start, end = _period(args.period_days, args.timezone, args.period_mode)
     run_stamp = end.strftime("%Y%m%d_%H%M")
     report_id = f"apuntes_politicos_{run_stamp}"
     out_dir = REPORTS_OUTPUT_DIR / report_id
@@ -182,6 +175,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Genera Apuntes políticos en Google Docs")
     parser.add_argument("--period-days", type=int, default=DEFAULT_PERIOD_DAYS)
     parser.add_argument("--timezone", default=REPORT_TIMEZONE)
+    parser.add_argument("--period-mode", default=REPORT_PERIOD_MODE, choices=["sliding", "half_month_current", "current_half_month", "half_month", "half_month_completed", "completed_half_month"], help="Modo de ventana: half_month_current numera por quincena vigente; half_month_completed usa la última quincena cerrada; sliding conserva últimos N días.")
     parser.add_argument("--input-news", help="Archivo JSON local de noticias crudas/normalizadas")
     parser.add_argument("--max-raw-news", type=int, default=MAX_RAW_NEWS)
     parser.add_argument("--min-clusters", type=int, default=MIN_CLUSTERS)

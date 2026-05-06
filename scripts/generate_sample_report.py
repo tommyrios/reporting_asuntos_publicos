@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -10,6 +10,7 @@ from news_models import news_from_dicts
 from political_analyzer import generate_political_report
 from run_scheduled_report import _preview_text
 from google_docs_builder import create_local_docx
+from report_numbering import resolve_period
 from utils import format_spanish_date, read_json, write_json
 
 
@@ -20,16 +21,10 @@ def main() -> None:
     args = parser.parse_args()
 
     tz = ZoneInfo("America/Argentina/Buenos_Aires")
-    end = datetime(2026, 5, 1, 20, 0, tzinfo=tz)
-    start = end - timedelta(days=15)
-    period = {
-        "start": start.isoformat(),
-        "end": end.isoformat(),
-        "label": f"{start.strftime('%d/%m/%Y')} al {end.strftime('%d/%m/%Y')}",
-        "date_label": format_spanish_date(end),
-        "timezone": "America/Argentina/Buenos_Aires",
-        "period_days": "15",
-    }
+    now = datetime(2026, 5, 1, 20, 0, tzinfo=tz)
+    period, start, end = resolve_period(now, period_days=15, mode="half_month_completed")
+    period["date_label"] = format_spanish_date(now)
+    period["timezone"] = "America/Argentina/Buenos_Aires"
     items = news_from_dicts(read_json(Path(args.input_news), []))
     clusters = select_top_clusters(cluster_news(items, reference=end), min_clusters=4, max_clusters=8)
     report = generate_political_report(clusters, period=period, disable_gemini=True)

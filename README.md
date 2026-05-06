@@ -12,6 +12,17 @@ Pipeline para generar una nota interna de actualidad política en formato Google
 6. Sube ese `.docx` a Drive y lo convierte en **Google Docs editable**.
 7. Comparte el documento con Drive API y envía el enlace por SMTP.
 
+## Contrato editorial obligatorio
+
+El pipeline no debe publicar textos que parezcan un pegado de titulares. Antes de generar el Google Doc, se sanea y valida el contenido final para impedir:
+
+- URLs o dominios.
+- Nombres de medios usados como fuente o atribución.
+- Frases como “según medios”, “relevado en medios” o “fuentes periodísticas”.
+- Frases inconclusas o sin puntuación final.
+
+Si Gemini devuelve una salida con medios o texto incompleto, el sistema descarta esa salida y usa un fallback determinístico. Si el fallback tampoco cumple el contrato, la ejecución falla antes de compartir el documento.
+
 ## Formato editorial
 
 El documento replica esta estructura:
@@ -101,6 +112,14 @@ SCHEDULE_ANCHOR_DATE=2026-05-06
 RUN_EVERY_DAYS=14
 AAPP_MIN_CLUSTERS=4
 AAPP_MAX_CLUSTERS=8
+
+# Numeración editorial acordada con Asuntos Públicos:
+# #7 = segunda quincena de abril 2026; #8 = primera quincena de mayo 2026.
+REPORT_PERIOD_MODE=half_month_current
+REPORT_BASE_ISSUE_NUMBER=7
+REPORT_BASE_PERIOD_YEAR=2026
+REPORT_BASE_PERIOD_MONTH=4
+REPORT_BASE_PERIOD_HALF=2
 ```
 
 ## Generar refresh token
@@ -142,7 +161,15 @@ python scripts/run_scheduled_report.py --period-days 15 --send-email
 Para probar sin crear Google Doc:
 
 ```bash
-python scripts/run_scheduled_report.py --period-days 15 --no-create-doc --disable-gemini
+python scripts/run_scheduled_report.py --period-days 15 --period-mode half_month_current --no-create-doc --disable-gemini
+```
+
+Modos de período disponibles:
+
+```text
+half_month_current    Usa la quincena vigente hasta el momento de ejecución. Ej: 06/05/2026 => primera quincena de mayo => #8.
+half_month_completed  Usa la última quincena cerrada. Ej: 16/05/2026 => primera quincena de mayo => #8.
+sliding               Conserva el comportamiento anterior de últimos N días, pero numera por la quincena de la fecha de cierre.
 ```
 
 ## Programación
