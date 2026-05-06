@@ -47,6 +47,56 @@ TOPIC_WEIGHTS = {
 }
 
 
+# Editorial buckets: broader than the raw similarity clusters. They are used to
+# merge many small clusters that actually describe the same political issue.
+# Example: three different headlines about PASO / Ficha Limpia / reforma
+# electoral must become one development, not three repeated bullets.
+THEME_BUCKETS: dict[str, list[str]] = {
+    "reforma_electoral": [
+        "reforma electoral", "paso", "ficha limpia", "maniobra electoral", "boleta", "calendario electoral",
+    ],
+    "congreso_jefatura_gabinete": [
+        "jefe de gabinete", "adorni", "informe de gestion", "informe de gestión", "diputados",
+        "congreso", "camara", "cámara", "sesion", "sesión", "renunciar", "interpelacion", "interpelación",
+    ],
+    "gobernadores_provincias": [
+        "gobernadores", "provincias", "patagon", "patagón", "patagonia", "zonas frias", "zonas frías",
+        "subsidios", "transferencias", "adelanto", "coparticipacion", "coparticipación",
+    ],
+    "opinion_publica": [
+        "encuesta", "imagen", "desaprobacion", "desaprobación", "aprobacion", "aprobación",
+        "opinion publica", "opinión pública", "humor social", "desgaste social", "malestar",
+    ],
+    "conflictividad_social": [
+        "cgt", "sindicato", "gremio", "paro", "marcha", "movilizacion", "movilización",
+        "protesta", "calle", "conflictividad",
+    ],
+    "economia_politica": [
+        "inflacion", "inflación", "recesion", "recesión", "empleo", "desempleo", "salarios",
+        "tarifas", "consumo", "prepagas", "ingresos", "fmi", "deuda",
+    ],
+    "oposicion_reordenamiento": [
+        "oposicion", "oposición", "peronismo", "kicillof", "ucr", "pro", "kirchnerismo",
+        "bloques opositores", "alternativa politica", "alternativa política",
+    ],
+    "integridad_gestion": [
+        "corrupcion", "corrupción", "denuncia", "investigacion", "investigación", "causa",
+        "integridad", "nucleoelectrica", "nucleoeléctrica", "reidel",
+    ],
+}
+
+BUCKET_PRIORITY = {
+    "reforma_electoral": 8,
+    "congreso_jefatura_gabinete": 7,
+    "gobernadores_provincias": 7,
+    "opinion_publica": 6,
+    "conflictividad_social": 6,
+    "economia_politica": 6,
+    "oposicion_reordenamiento": 5,
+    "integridad_gestion": 5,
+}
+
+
 def _domain(url: str) -> str:
     try:
         host = urlparse(url).netloc.lower()
@@ -132,8 +182,8 @@ def _cluster_summary(items: list[NewsItem], max_chars: int = 900) -> str:
 def _score_cluster(cluster: NewsCluster, reference: datetime | None = None) -> float:
     score = 0.0
     # Centrality: the same information appearing repeatedly across media has priority.
-    score += min(cluster.article_count, 12) * 5
-    score += min(cluster.source_count, 8) * 8
+    score += min(cluster.article_count, 18) * 7
+    score += min(cluster.source_count, 10) * 12
     for topic in cluster.topics:
         score += TOPIC_WEIGHTS.get(topic, 0)
     score += min(len(cluster.actors), 5) * 4
@@ -148,6 +198,99 @@ def _score_cluster(cluster: NewsCluster, reference: datetime | None = None) -> f
         elif days <= 15:
             score += 4
     return round(score, 2)
+
+
+def _cluster_text(cluster: NewsCluster) -> str:
+    return " ".join(
+        [
+            cluster.title,
+            cluster.summary,
+            " ".join(cluster.representative_titles),
+            " ".join(_text_for_item(item) for item in cluster.items[:8]),
+        ]
+    )
+
+
+def _theme_bucket_for_cluster(cluster: NewsCluster) -> str:
+    text = normalize_text(_cluster_text(cluster))
+    hits: list[tuple[int, int, str]] = []
+    for bucket, keywords in THEME_BUCKETS.items():
+        count = 0
+        for keyword in keywords:
+            normalized_keyword = normalize_text(keyword)
+            if normalized_keyword and normalized_keyword in text:
+                count += 1
+        if count:
+            hits.append((count, BUCKET_PRIORITY.get(bucket, 0), bucket))
+    if not hits:
+        return "misc_" + compact_hash(" ".join(sorted(_tokens(_cluster_text(cluster))))[:220], 8)
+    hits.sort(reverse=True)
+    return hits[0][2]
+
+
+def _merge_cluster_group(group: list[NewsCluster], reference: datetime | None = None) -> NewsCluster:
+    if len(group) == 1:
+        single = group[0]
+        single.score = _score_cluster(single, reference=reference)
+        return single
+
+    items: list[NewsItem] = []
+    for cluster in group:
+        items.extend(cluster.items)
+    items = _latest_first(items)
+
+    all_text = " ".join(_text_for_item(item) for item in items)
+    topics = detect_topics(all_text)
+    actors = detect_actors(all_text)
+    domains = {_domain(item.url) or normalize_text(item.source) for item in items if item.url or item.source}
+    dates = [parse_datetime(item.published_at) for item in items if parse_datetime(item.published_at)]
+    first_seen = min(dates).isoformat() if dates else ""
+    last_seen = max(dates).isoformat() if dates else ""
+    title = _representative_title(items)
+    representative_titles = []
+    seen_titles: set[str] = set()
+    for item in items:
+        cleaned_title = strip_media_terms(item.title).strip()
+        key = normalize_text(cleaned_title)
+        if cleaned_title and key not in seen_titles:
+            representative_titles.append(cleaned_title)
+            seen_titles.add(key)
+        if len(representative_titles) >= 8:
+            break
+
+    cluster = NewsCluster(
+        cluster_id="theme_" + compact_hash(_theme_bucket_for_cluster(group[0]) + normalize_text(title) + str(len(items)), 12),
+        title=title,
+        summary=_cluster_summary(items, max_chars=1200),
+        items=items,
+        topics=topics,
+        actors=actors,
+        source_count=len(domains),
+        article_count=len(items),
+        first_seen=first_seen,
+        last_seen=last_seen,
+        representative_titles=representative_titles,
+        urls=[item.url for item in items[:14] if item.url],
+    )
+    cluster.score = _score_cluster(cluster, reference=reference)
+    return cluster
+
+
+def merge_related_clusters(clusters: list[NewsCluster], reference: datetime | None = None) -> list[NewsCluster]:
+    """Merge clusters that are distinct by wording but identical by editorial theme.
+
+    Raw feeds often produce many clusters for the same issue because outlets use
+    different headlines. The report must prioritize issues, not headlines. This
+    function turns repeated coverage into a single, higher-scored theme.
+    """
+    buckets: dict[str, list[NewsCluster]] = {}
+    for cluster in clusters:
+        bucket = _theme_bucket_for_cluster(cluster)
+        buckets.setdefault(bucket, []).append(cluster)
+
+    merged = [_merge_cluster_group(group, reference=reference) for group in buckets.values()]
+    merged.sort(key=lambda c: (c.score, c.article_count, c.source_count), reverse=True)
+    return merged
 
 
 def cluster_news(items: list[NewsItem], similarity_threshold: float = 0.20, reference: datetime | None = None) -> list[NewsCluster]:
@@ -196,7 +339,8 @@ def cluster_news(items: list[NewsItem], similarity_threshold: float = 0.20, refe
         cluster.score = _score_cluster(cluster, reference=reference)
         clusters.append(cluster)
 
-    clusters.sort(key=lambda c: (c.score, c.source_count, c.article_count), reverse=True)
+    clusters = merge_related_clusters(clusters, reference=reference)
+    clusters.sort(key=lambda c: (c.score, c.article_count, c.source_count), reverse=True)
     return clusters
 
 
@@ -207,4 +351,7 @@ def select_top_clusters(clusters: list[NewsCluster], min_clusters: int = 4, max_
     selected = [cluster for cluster in clusters if cluster.source_count >= 2 or cluster.article_count >= 2 or cluster.score >= 45]
     if len(selected) < min_clusters:
         selected = clusters[:min_clusters]
+    # More-covered themes must appear earlier in the report. Score already
+    # includes centrality, but keep article/source count as explicit tie-breakers.
+    selected.sort(key=lambda c: (c.score, c.article_count, c.source_count), reverse=True)
     return selected[:max_clusters]

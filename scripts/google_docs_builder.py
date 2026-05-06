@@ -26,6 +26,12 @@ GREY_4 = "46536D"
 RED_NOTE = "E60012"
 WHITE = "FFFFFF"
 
+# The editorial box is the core reading area. Keep it legible in Google Docs
+# exports; previous output was too small for review in PDF/Docs.
+DEVELOPMENT_FONT_SIZE = 12.2
+KEYS_FONT_SIZE = 11.8
+KEYS_HEADING_FONT_SIZE = 12.4
+
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 GOOGLE_DOC_MIME = "application/vnd.google-apps.document"
 
@@ -208,25 +214,25 @@ def _add_developments_block(document: Document, report: dict[str, Any]) -> None:
         paragraph.paragraph_format.first_line_indent = Inches(-0.20)
 
         bullet = paragraph.add_run("─ ")
-        _style_run(bullet, font="Lato", size=10.3, color=GREY_4)
+        _style_run(bullet, font="Lato", size=DEVELOPMENT_FONT_SIZE, color=GREY_4)
 
         headline = str(item.get("headline") or "").strip()
         if headline and not headline.endswith((".", "?", "!")):
             headline += "."
         analysis = str(item.get("analysis") or "").strip()
         h = paragraph.add_run(headline + (" " if analysis else ""))
-        _style_run(h, font="Lato", size=10.3, color=ELECTRIC_BLUE, bold=True)
+        _style_run(h, font="Lato", size=DEVELOPMENT_FONT_SIZE, color=ELECTRIC_BLUE, bold=True)
         a = paragraph.add_run(analysis)
-        _style_run(a, font="Lato", size=10.3, color=GREY_5)
+        _style_run(a, font="Lato", size=DEVELOPMENT_FONT_SIZE, color=GREY_5)
 
     keys_heading = cell.add_paragraph()
     _paragraph_spacing(keys_heading, before=6, after=5, line=1.0)
     keys_heading.paragraph_format.left_indent = Inches(0.24)
     keys_heading.paragraph_format.first_line_indent = Inches(-0.20)
     b = keys_heading.add_run("─ ")
-    _style_run(b, font="Lato", size=10.4, color=GREY_4)
+    _style_run(b, font="Lato", size=KEYS_HEADING_FONT_SIZE, color=GREY_4)
     r = keys_heading.add_run("Claves prospectivas")
-    _style_run(r, font="Lato", size=10.4, color=ELECTRIC_BLUE, bold=True)
+    _style_run(r, font="Lato", size=KEYS_HEADING_FONT_SIZE, color=ELECTRIC_BLUE, bold=True)
 
     for key in report.get("prospective_keys", []):
         p = cell.add_paragraph()
@@ -234,9 +240,9 @@ def _add_developments_block(document: Document, report: dict[str, Any]) -> None:
         p.paragraph_format.left_indent = Inches(0.58)
         p.paragraph_format.first_line_indent = Inches(-0.16)
         r = p.add_run("○ ")
-        _style_run(r, font="Lato", size=9.5, color=ELECTRIC_BLUE)
+        _style_run(r, font="Lato", size=KEYS_FONT_SIZE, color=ELECTRIC_BLUE)
         r = p.add_run(str(key).strip())
-        _style_run(r, font="Lato", size=9.5, color=ELECTRIC_BLUE, bold=True)
+        _style_run(r, font="Lato", size=KEYS_FONT_SIZE, color=ELECTRIC_BLUE, bold=True)
 
 
 def _add_footer(document: Document) -> None:

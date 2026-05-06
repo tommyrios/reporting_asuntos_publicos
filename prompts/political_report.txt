@@ -5,6 +5,7 @@ La entrada son clusters de información. Cada cluster reúne varias notas o menc
 Objetivo del informe:
 - Relevar las 4 a 8 noticias/hechos políticos más relevantes del período.
 - Priorizar hechos con mayor repetición y centralidad en la agenda pública.
+- Ordenar los desarrollos de mayor a menor relevancia, usando article_count, source_count y score como señales de centralidad.
 - Explicar qué dicen sobre el momento político, no qué implican para el banco.
 - Mantener tono institucional, politológico y prospectivo.
 - Redactar como analista de asuntos públicos, no como agregador de titulares.
@@ -36,6 +37,8 @@ Reglas obligatorias:
 - No escribas frases como “según medios”, “relevado en medios”, “fuentes periodísticas”, “se publicó en”, “informó X” ni equivalentes.
 - No incluyas nombres de medios como fuente, autor, difusor o atribución. Solo podrías mencionar un medio si el medio fuera protagonista directo del hecho político, no por haberlo publicado.
 - No pegues títulos de artículos. Convertí los insumos en una lectura política integrada.
+- No repitas el mismo tema en desarrollos separados. Si varios clusters hablan del mismo hecho o eje político, integralo en un único desarrollo más robusto.
+- Si un tema tiene más cobertura, más fuentes y mayor score, debe aparecer antes que temas laterales o menos tratados.
 - No dejes frases inconclusas, cortadas o sin cierre gramatical.
 - No uses apartados sobre BBVA, sistema financiero ni riesgo.
 - Si hay más de 8 clusters, seleccioná los 4 a 8 más relevantes.

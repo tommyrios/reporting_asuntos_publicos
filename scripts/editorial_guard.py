@@ -121,6 +121,10 @@ def strip_media_terms(text: str, media_terms: Iterable[str] | None = None) -> st
         value = re.sub(pattern, " ", value, flags=re.IGNORECASE)
     for phrase in GENERIC_SOURCE_PHRASES:
         value = re.sub(re.escape(phrase), "hechos registrados durante el período", value, flags=re.IGNORECASE)
+    # Remove orphaned domain fragments left after stripping outlet names
+    # (for example: "Nación. com" -> "Nación" in copied RSS snippets).
+    value = re.sub(r"\b(?:com|com\.ar|ar|net|org)\b", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\b[\w-]+\.(?:com|com\.ar|ar|net|org)\b", " ", value, flags=re.IGNORECASE)
     value = re.sub(r"\s+([,.;:])", r"\1", value)
     value = re.sub(r"([,;:])\s*([.;])", r"\2", value)
     value = re.sub(r"\.{2,}", ".", value)
@@ -143,7 +147,15 @@ def complete_sentence(text: str, max_chars: int | None = None) -> str:
         last_stop = max(value.rfind("."), value.rfind(";"), value.rfind("!"), value.rfind("?"))
         value = value[:last_stop + 1].strip() if last_stop > 20 else ""
     if value and not value.endswith((".", "?", "!")):
-        value += "."
+        # If the tail looks like a copied/truncated headline, keep only the last
+        # complete sentence instead of masking the truncation with a period.
+        last_stop = max(value.rfind("."), value.rfind(";"), value.rfind("!"), value.rfind("?"))
+        tail = value[last_stop + 1 :].strip() if last_stop >= 0 else value
+        tail_words = normalize_text(tail).split()
+        if last_stop > 20 and (len(tail_words) <= 12 or (tail_words and tail_words[-1] in TRAILING_BAD_WORDS)):
+            value = value[: last_stop + 1].strip()
+        else:
+            value += "."
     return value
 
 

@@ -6,11 +6,12 @@ Pipeline para generar una nota interna de actualidad política en formato Google
 
 1. Releva noticias políticas del período configurado (default: últimos 15 días).
 2. Agrupa notas repetidas en **clusters de hechos políticos**. El foco no es el medio, sino la pieza de información.
-3. Prioriza entre 4 y 8 clusters por recurrencia, centralidad política y recencia.
-4. Usa Gemini para redactar una nota interna con tono politológico.
-5. Genera un `.docx` local con estilo BBVA, incluyendo `assets/brand/logo_bbva_white.png` como imagen real.
-6. Sube ese `.docx` a Drive y lo convierte en **Google Docs editable**.
-7. Comparte el documento con Drive API y envía el enlace por SMTP.
+3. Fusiona clusters cercanos por tema editorial para evitar desarrollos repetidos sobre el mismo hecho.
+4. Prioriza entre 4 y 8 temas por recurrencia, cantidad de fuentes, centralidad política y recencia.
+5. Usa Gemini para redactar una nota interna con tono politológico.
+6. Genera un `.docx` local con estilo BBVA, incluyendo `assets/brand/logo_bbva_white.png` como imagen real.
+7. Sube ese `.docx` a Drive y lo convierte en **Google Docs editable**.
+8. Comparte el documento con Drive API y envía el enlace por SMTP.
 
 ## Contrato editorial obligatorio
 
@@ -20,6 +21,7 @@ El pipeline no debe publicar textos que parezcan un pegado de titulares. Antes d
 - Nombres de medios usados como fuente o atribución.
 - Frases como “según medios”, “relevado en medios” o “fuentes periodísticas”.
 - Frases inconclusas o sin puntuación final.
+- Desarrollos duplicados sobre un mismo tema político.
 
 Si Gemini devuelve una salida con medios o texto incompleto, el sistema descarta esa salida y usa un fallback determinístico. Si el fallback tampoco cumple el contrato, la ejecución falla antes de compartir el documento.
 

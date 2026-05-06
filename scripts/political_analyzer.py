@@ -28,10 +28,11 @@ def _cluster_payload(clusters: list[NewsCluster]) -> list[dict[str, Any]]:
     """
     payload = []
     media_terms = media_terms_from_clusters(clusters)
-    for cluster in clusters:
+    for idx, cluster in enumerate(clusters):
         payload.append(
             {
                 "cluster_id": cluster.cluster_id,
+                "editorial_priority": idx + 1,
                 "representative_title": sanitize_final_text(cluster.title, media_terms, max_chars=220),
                 "cluster_summary": sanitize_final_text(cluster.summary, media_terms, max_chars=1000),
                 "article_count": cluster.article_count,
@@ -59,6 +60,8 @@ def _topic_headline(cluster: NewsCluster) -> str:
 
     if "paso" in text or "ficha limpia" in text or "reforma electoral" in text:
         return "La reforma electoral abre una nueva pulseada entre el oficialismo y la oposición"
+    if "kicillof" in text or "peronismo" in text or "kirchnerismo" in text:
+        return "La oposición muestra mayor movimiento, aunque todavía sin síntesis definitiva"
     if "gobernador" in text or "provincias" in text or "subsidios" in text or "transferencias" in text:
         return "El vínculo con los gobernadores condiciona la agenda de reformas"
     if "jefe de gabinete" in text or "adorni" in text or "diputados" in text or "congreso" in text:
@@ -69,7 +72,7 @@ def _topic_headline(cluster: NewsCluster) -> str:
         return "La opinión pública introduce un límite más exigente para el oficialismo"
     if "inflacion" in text or "recesion" in text or "empleo" in text or "salarios" in text or "consumo" in text:
         return "La economía sigue ordenando el clima político de la quincena"
-    if "oposicion" in text or "peronismo" in text or "kicillof" in text:
+    if "oposicion" in text:
         return "La oposición muestra mayor movimiento, aunque todavía sin síntesis definitiva"
     if "corrupcion" in text or "denuncia" in text or "investigacion" in text:
         return "Los cuestionamientos a la integridad de la gestión ganan peso político"
@@ -119,6 +122,46 @@ def re_split_sentences(text: str) -> list[str]:
     if tail:
         parts.append(tail)
     return parts or [value]
+
+
+def _merge_development_analyses(existing: str, new: str, media_terms: set[str], max_chars: int = 1100) -> str:
+    """Combine duplicated developments without repeating the same sentence.
+
+    This is a final editorial safety net. Even if Gemini returns the same theme
+    more than once, the report must publish one integrated block with the full
+    analytical treatment.
+    """
+    sentences: list[str] = []
+    seen: set[str] = set()
+    for text in [existing, new]:
+        for sentence in re_split_sentences(text):
+            cleaned = sanitize_final_text(sentence, media_terms, max_chars=360)
+            key = normalize_text(cleaned)
+            if len(key) < 35 or key in seen:
+                continue
+            seen.add(key)
+            sentences.append(cleaned)
+    return sanitize_final_text(" ".join(sentences), media_terms, max_chars=max_chars)
+
+
+def _merge_duplicate_developments(developments: list[dict[str, str]], media_terms: set[str]) -> list[dict[str, str]]:
+    merged: list[dict[str, str]] = []
+    by_headline: dict[str, int] = {}
+    for item in developments:
+        headline = str(item.get("headline") or "").strip()
+        analysis = str(item.get("analysis") or "").strip()
+        if not headline or not analysis:
+            continue
+        key = normalize_text(headline)
+        if key in by_headline:
+            idx = by_headline[key]
+            merged[idx]["analysis"] = _merge_development_analyses(merged[idx]["analysis"], analysis, media_terms)
+            if item.get("cluster_id") and item["cluster_id"] not in merged[idx].get("cluster_id", ""):
+                merged[idx]["cluster_id"] = ",".join(filter(None, [merged[idx].get("cluster_id", ""), item.get("cluster_id", "")]))
+        else:
+            by_headline[key] = len(merged)
+            merged.append(item)
+    return merged
 
 
 def _fallback_analysis(cluster: NewsCluster, media_terms: set[str]) -> str:
@@ -225,9 +268,12 @@ def _sanitize_report(payload: dict[str, Any], clusters: list[NewsCluster], perio
                     "cluster_id": str(item.get("cluster_id") or (clusters[idx].cluster_id if idx < len(clusters) else "")),
                 }
             )
+    cleaned_developments = _merge_duplicate_developments(cleaned_developments, media_terms)
+
     if len(cleaned_developments) < 4 and len(fallback["developments"]) >= len(cleaned_developments):
         for item in fallback["developments"][len(cleaned_developments):4]:
             cleaned_developments.append(item)
+        cleaned_developments = _merge_duplicate_developments(cleaned_developments, media_terms)
 
     keys = payload.get("prospective_keys")
     if not isinstance(keys, list):
