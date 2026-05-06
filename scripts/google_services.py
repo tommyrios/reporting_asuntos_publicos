@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-
 from typing import Any
+
 
 SCOPES = [
     "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/gmail.send",
 ]
 
 
@@ -45,7 +44,3 @@ def docs_service():
 
 def drive_service():
     return _build_service("drive", "v3")
-
-
-def gmail_service():
-    return _build_service("gmail", "v1")
