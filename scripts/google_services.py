@@ -4,7 +4,8 @@ import os
 from functools import lru_cache
 from typing import Any
 
-
+# OAuth scopes used only for Google Docs + Drive.
+# Email delivery is intentionally handled via SMTP in scripts/send_email.py.
 SCOPES = [
     "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/drive.file",

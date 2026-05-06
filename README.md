@@ -10,7 +10,7 @@ Pipeline para generar una nota interna de actualidad política en formato Google
 4. Usa Gemini para redactar una nota interna con tono politológico.
 5. Crea un Google Doc editable con Google Docs API.
 6. Comparte el archivo con Drive API.
-7. Envía el enlace por Gmail API o SMTP.
+7. Envía el enlace por SMTP.
 
 ## Formato editorial
 
@@ -47,14 +47,12 @@ Habilitar en Google Cloud:
 
 - Google Docs API
 - Google Drive API
-- Gmail API, solo si `EMAIL_DELIVERY_MODE=gmail_api`
 
 Scopes OAuth:
 
 ```text
 https://www.googleapis.com/auth/documents
 https://www.googleapis.com/auth/drive.file
-https://www.googleapis.com/auth/gmail.send
 ```
 
 Secrets:
@@ -67,7 +65,7 @@ GOOGLE_TOKEN_URI=https://oauth2.googleapis.com/token
 GEMINI_API_KEY
 ```
 
-Opcionales:
+Opcionales / envío SMTP:
 
 ```text
 GOOGLE_DOCS_FOLDER_ID
@@ -76,13 +74,16 @@ EMAIL_FROM
 EMAIL_DESTINATARIO
 EMAIL_CC
 EMAIL_BCC
+SMTP_HOST
+SMTP_PORT
+EMAIL_USER
+EMAIL_PASSWORD
 ```
 
 Variables recomendadas:
 
 ```text
 GOOGLE_DOCS_SHARE_ROLE=writer
-EMAIL_DELIVERY_MODE=gmail_api
 SCHEDULE_ANCHOR_DATE=2026-05-06
 RUN_EVERY_DAYS=14
 AAPP_MIN_CLUSTERS=4

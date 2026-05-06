@@ -99,7 +99,6 @@ jobs:
           GOOGLE_DOCS_SHARE_ROLE: ${{ vars.GOOGLE_DOCS_SHARE_ROLE || 'writer' }}
           GOOGLE_DOCS_ANYONE_WITH_LINK: ${{ vars.GOOGLE_DOCS_ANYONE_WITH_LINK || 'false' }}
 
-          EMAIL_DELIVERY_MODE: ${{ vars.EMAIL_DELIVERY_MODE || 'gmail_api' }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
           EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
           EMAIL_CC: ${{ secrets.EMAIL_CC }}

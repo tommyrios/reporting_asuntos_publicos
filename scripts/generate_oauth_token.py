@@ -5,10 +5,11 @@ import os
 
 from google_auth_oauthlib.flow import InstalledAppFlow
 
+# OAuth only for creating/editing Google Docs and sharing/moving files in Drive.
+# Email is sent via SMTP and does not require Google OAuth.
 SCOPES = [
     "https://www.googleapis.com/auth/documents",
     "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/gmail.send",
 ]
 
 
