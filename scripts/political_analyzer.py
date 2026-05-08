@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from typing import Any
 
 from editorial_guard import (
@@ -28,6 +29,7 @@ def _cluster_payload(clusters: list[NewsCluster]) -> list[dict[str, Any]]:
     """
     payload = []
     media_terms = media_terms_from_clusters(clusters)
+
     for idx, cluster in enumerate(clusters):
         payload.append(
             {
@@ -40,7 +42,11 @@ def _cluster_payload(clusters: list[NewsCluster]) -> list[dict[str, Any]]:
                 "topics": cluster.topics,
                 "actors": cluster.actors,
                 "score": cluster.score,
-                "period_coverage": {"first_seen": cluster.first_seen, "last_seen": cluster.last_seen},
+                "period_coverage": {
+                    "first_seen": cluster.first_seen,
+                    "last_seen": cluster.last_seen,
+                },
+                "fact_sheet": _fact_sheet_for_cluster(cluster, media_terms),
                 "representative_titles": [
                     sanitize_final_text(title, media_terms, max_chars=220)
                     for title in cluster.representative_titles[:6]
@@ -48,12 +54,182 @@ def _cluster_payload(clusters: list[NewsCluster]) -> list[dict[str, Any]]:
                 ],
             }
         )
+
     return payload
 
 
 def _default_issue_number(period: dict[str, str]) -> str:
     return resolve_issue_number(period)
 
+NUMBER_PATTERN = re.compile(
+    r"""
+    (?:
+        (?:\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\b\d+(?:[.,]\d+)?)
+        \s*
+        (?:%|puntos?|millones?|mil|votos?|bancas?|diputados?|senadores?|proyectos?|leyes?|d[ií]as?|mes(?:es)?|a[nñ]os?|ARS|USD|US\$|\$)
+    )
+    |
+    (?:
+        (?:ARS|USD|US\$|\$)\s*
+        (?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?|\d+(?:[.,]\d+)?)
+    )
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+PROJECT_OR_MEASURE_KEYWORDS = [
+    "Ficha Limpia",
+    "PASO",
+    "reforma electoral",
+    "ley de discapacidad",
+    "subsidios",
+    "zonas frías",
+    "transferencias",
+    "inflación",
+    "prepagas",
+    "jubilaciones",
+    "paritarias",
+    "paro",
+    "movilización",
+    "decreto",
+    "veto",
+    "dictamen",
+    "media sanción",
+    "sesión",
+    "quórum",
+    "reforma laboral",
+    "reforma previsional",
+    "reforma tributaria",
+]
+
+
+def _cluster_candidate_texts(cluster: NewsCluster, media_terms: set[str]) -> list[str]:
+    candidates: list[str] = []
+
+    raw_values = [
+        cluster.title,
+        cluster.summary,
+        *cluster.representative_titles[:8],
+    ]
+
+    for item in cluster.items[:10]:
+        raw_values.append(item.title)
+        raw_values.append(item.summary)
+
+    seen: set[str] = set()
+    for value in raw_values:
+        cleaned = sanitize_final_text(str(value or ""), media_terms, max_chars=420)
+        key = normalize_text(cleaned)
+        if cleaned and len(key) >= 20 and key not in seen:
+            seen.add(key)
+            candidates.append(cleaned)
+
+    return candidates
+
+
+def _extract_numbers_or_metrics(texts: list[str]) -> list[str]:
+    found: list[str] = []
+    seen: set[str] = set()
+
+    for text in texts:
+        for match in NUMBER_PATTERN.findall(text):
+            value = re.sub(r"\s+", " ", match).strip()
+            key = normalize_text(value)
+            if value and key not in seen:
+                seen.add(key)
+                found.append(value)
+            if len(found) >= 8:
+                return found
+
+    return found
+
+
+def _extract_projects_or_measures(texts: list[str]) -> list[str]:
+    joined = normalize_text(" ".join(texts))
+    found: list[str] = []
+
+    for keyword in PROJECT_OR_MEASURE_KEYWORDS:
+        if normalize_text(keyword) in joined:
+            found.append(keyword)
+
+    return found[:8]
+
+
+def _extract_concrete_facts(texts: list[str], max_facts: int = 5) -> list[str]:
+    facts: list[str] = []
+    seen: set[str] = set()
+
+    useful_terms = [
+        "busca",
+        "impulsa",
+        "rechaza",
+        "presiona",
+        "tratar",
+        "aprobar",
+        "eliminar",
+        "aument",
+        "cay",
+        "caída",
+        "suba",
+        "recorte",
+        "transferencias",
+        "subsidios",
+        "congreso",
+        "diputados",
+        "senado",
+        "gobernadores",
+        "oposición",
+        "oficialismo",
+        "inflación",
+        "desaprobación",
+        "imagen",
+        "paro",
+        "movilización",
+    ]
+
+    for text in texts:
+        chunks = re.split(r"(?<=[.!?])\s+", text)
+        for chunk in chunks:
+            sentence = chunk.strip()
+            normalized = normalize_text(sentence)
+
+            if len(normalized) < 45:
+                continue
+
+            if not any(term in normalized for term in useful_terms):
+                continue
+
+            if normalized in seen:
+                continue
+
+            seen.add(normalized)
+            facts.append(sentence)
+
+            if len(facts) >= max_facts:
+                return facts
+
+    return facts
+
+
+def _fact_sheet_for_cluster(cluster: NewsCluster, media_terms: set[str]) -> dict[str, Any]:
+    texts = _cluster_candidate_texts(cluster, media_terms)
+
+    projects_or_measures = _extract_projects_or_measures(texts)
+    numbers_or_metrics = _extract_numbers_or_metrics(texts)
+    concrete_facts = _extract_concrete_facts(texts)
+
+    editorial_hint = (
+        f"Este tema reúne {cluster.article_count} menciones y {cluster.source_count} fuentes distintas. "
+        "Debe priorizarse si combina recurrencia, actores institucionales e impacto político concreto."
+    )
+
+    return {
+        "main_actors": cluster.actors[:8],
+        "projects_or_measures": projects_or_measures,
+        "numbers_or_metrics": numbers_or_metrics,
+        "concrete_facts": concrete_facts,
+        "editorial_hint": editorial_hint,
+    }
 
 def _topic_headline(cluster: NewsCluster) -> str:
     text = normalize_text(" ".join([cluster.title, cluster.summary, " ".join(cluster.topics), " ".join(cluster.actors)]))
