@@ -121,10 +121,10 @@ def run(args: argparse.Namespace) -> dict:
             raise RuntimeError("Para enviar email se requiere crear el Google Doc. Usá --create-doc o CREATE_GOOGLE_DOC=true.")
         subject = f"{report['title']} - {report.get('date_label', period['date_label'])}"
         body = (
-            "Hola,\n\n"
-            "Comparto el enlace al borrador de Apuntes políticos:\n"
+            "Gonza, ¿cómo estás?\n"
+            "Como cada quince días, va una lectura breve de lo que ocurrió políticamente en estas dos semanas.\n"
+            "Un abrazo!\n\n"
             f"{doc_result['document_url']}\n\n"
-            "Saludos."
         )
         email_result = send_email(subject, body)
         report_contract["email_result"] = email_result
