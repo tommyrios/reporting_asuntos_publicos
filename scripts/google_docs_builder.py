@@ -26,8 +26,6 @@ GREY_4 = "46536D"
 RED_NOTE = "E60012"
 WHITE = "FFFFFF"
 
-# The editorial box is the core reading area. Keep it legible in Google Docs
-# exports; previous output was too small for review in PDF/Docs.
 DEVELOPMENT_FONT_SIZE = 12.2
 KEYS_FONT_SIZE = 11.8
 KEYS_HEADING_FONT_SIZE = 12.4
@@ -169,9 +167,9 @@ def _add_meta(document: Document, internal_label: str) -> None:
     p_right = right.paragraphs[0]
     p_right.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     run = p_left.add_run("DIRECCIÓN DE RELACIONES INSTITUCIONALES")
-    _style_run(run, font="Lato", size=7.8, color=ELECTRIC_BLUE, bold=True)
+    _style_run(run, font="Lato", size=9, color=ELECTRIC_BLUE, bold=True)
     run = p_right.add_run(internal_label)
-    _style_run(run, font="Lato", size=9.5, color=RED_NOTE, bold=True)
+    _style_run(run, font="Lato", size=12, color=RED_NOTE, bold=True)
     _paragraph_spacing(p_left, after=4)
     _paragraph_spacing(p_right, after=4)
 
@@ -180,7 +178,7 @@ def _add_title_block(document: Document, report: dict[str, Any]) -> None:
     p = document.add_paragraph()
     _paragraph_spacing(p, before=0, after=1)
     r = p.add_run(str(report.get("title") or "Apuntes políticos"))
-    _style_run(r, font="Source Serif 4", size=27, color=ELECTRIC_BLUE, bold=True)
+    _style_run(r, font="Georgia", size=27, color=ELECTRIC_BLUE, bold=True)
 
     p = document.add_paragraph()
     _paragraph_spacing(p, before=0, after=18)
@@ -190,7 +188,7 @@ def _add_title_block(document: Document, report: dict[str, Any]) -> None:
     p = document.add_paragraph()
     _paragraph_spacing(p, before=5, after=18, line=0.94)
     r = p.add_run(str(report.get("lead") or ""))
-    _style_run(r, font="Source Serif 4", size=12.8, color=ELECTRIC_BLUE, bold=True)
+    _style_run(r, font="Georgia", size=12, color=ELECTRIC_BLUE, bold=True)
 
 
 def _add_developments_block(document: Document, report: dict[str, Any]) -> None:
@@ -204,7 +202,6 @@ def _add_developments_block(document: Document, report: dict[str, Any]) -> None:
     _set_cell_shading(cell, SAND)
     _set_cell_margins(cell, top=220, bottom=170, start=300, end=260)
 
-    # Remove initial empty paragraph after using it for the first item.
     first = True
     for item in report.get("developments", []):
         paragraph = cell.paragraphs[0] if first else cell.add_paragraph()
@@ -261,12 +258,12 @@ def _add_footer(document: Document) -> None:
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _paragraph_spacing(p, before=0, after=0)
     r = p.add_run("Gracias!")
-    _style_run(r, font="Lato", size=11, color=WHITE, bold=True)
+    _style_run(r, font="Arial", size=12, color=WHITE, bold=True)
     p = cell.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     _paragraph_spacing(p, before=2, after=0)
     r = p.add_run("DIRECCIÓN DE RELACIONES INSTITUCIONALES")
-    _style_run(r, font="Lato", size=7, color=ELECTRIC_BLUE, bold=True)
+    _style_run(r, font="Arial", size=8, color=ELECTRIC_BLUE, bold=True)
 
 
 def create_local_docx(report: dict[str, Any], report_id: str, output_dir: Path | None = None) -> Path:
