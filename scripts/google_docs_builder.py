@@ -368,7 +368,7 @@ def upload_docx_as_google_doc(docx_path: Path, title: str) -> dict[str, Any]:
 
 
 def create_google_doc(report: dict[str, Any], report_id: str) -> dict[str, Any]:
-    title = f"{report['title']} - {report.get('date_label', '')}".strip(" -")
+    title = f"Insumos apuntes políticos quincenal - {report.get('date_label', '')}".strip(" -")
     out_dir = REPORTS_OUTPUT_DIR / report_id
     docx_path = create_local_docx(report, report_id=report_id, output_dir=out_dir)
     return upload_docx_as_google_doc(docx_path, title=title)
