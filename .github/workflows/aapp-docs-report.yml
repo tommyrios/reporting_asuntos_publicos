@@ -2,9 +2,8 @@ name: AAPP Apuntes Politicos Google Docs
 
 on:
   schedule:
-    # Miercoles 22:00 Argentina = jueves 01:00 UTC.
-    # La logica quincenal se valida en scripts/should_run.py.
-    - cron: '0 1 * * 4'
+
+    - cron: '0 20 * * 3'
   workflow_dispatch:
     inputs:
       force_run:
