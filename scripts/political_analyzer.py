@@ -401,7 +401,7 @@ def _fallback_report(clusters: list[NewsCluster], period: dict[str, str]) -> dic
         "La lectura del período exige mirar menos la sucesión de episodios y más la acumulación de tensiones: gobernabilidad legislativa, conflictividad social, opinión pública y economía política comienzan a operar de manera simultánea."
     )
     return {
-        "title": f"{os.getenv('REPORT_TITLE_PREFIX', 'Insumos para aportes políticos')} #{_default_issue_number(period)}".strip(),
+        "title": f"{os.getenv('REPORT_TITLE_PREFIX', 'Insumos para apuntes políticos')} #{_default_issue_number(period)}".strip(),
         "date_label": period.get("date_label", ""),
         "lead": sanitize_final_text(lead, media_terms, max_chars=1350),
         "developments": developments,
@@ -421,7 +421,7 @@ def _sanitize_report(payload: dict[str, Any], clusters: list[NewsCluster], perio
 
     title = str(payload.get("title") or fallback["title"]).strip()
     # The numbering is owned by the deterministic calendar, not by the model.
-    title_prefix = os.getenv("REPORT_TITLE_PREFIX", "Insumos para aportes políticos")
+    title_prefix = os.getenv("REPORT_TITLE_PREFIX", "Insumos para apuntes políticos")
     title = f"{title_prefix} #{_default_issue_number(period)}".strip()
 
     date_label = str(payload.get("date_label") or period.get("date_label") or fallback["date_label"]).strip()
@@ -490,7 +490,7 @@ def generate_political_report(clusters: list[NewsCluster], period: dict[str, str
 
     try:
         prompt = load_prompt("political_report.txt")
-        style = load_prompt("style_insumos_para_aportes_politicos.txt")
+        style = load_prompt("style_insumos_para_apuntes_politicos.txt")
         payload = {"period": period, "clusters": _cluster_payload(clusters)}
         response = call_gemini_for_json(
             [
