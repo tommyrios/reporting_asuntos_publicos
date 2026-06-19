@@ -52,7 +52,7 @@ class EditorialGuardTests(unittest.TestCase):
             self.assertNotIn(forbidden, full_text)
         for dev in report["developments"]:
             self.assertTrue(dev["analysis"].endswith((".", "?", "!")))
-        self.assertEqual(report["title"], "Apuntes políticos #8")
+        self.assertEqual(report["title"], "Insumos para apuntes políticos #8")
 
 
 if __name__ == "__main__":

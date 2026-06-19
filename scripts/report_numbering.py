@@ -51,7 +51,7 @@ def resolve_issue_number(period: dict[str, str]) -> str:
     """Resolve the report issue number from the half-month political report calendar.
 
     Baseline agreed with AAPP:
-    - Apuntes políticos #7 = segunda quincena de abril 2026.
+    - Insumos para apuntes políticos #7 = segunda quincena de abril 2026.
     Therefore:
     - primera quincena de mayo 2026 = #8
     - segunda quincena de mayo 2026 = #9

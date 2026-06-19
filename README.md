@@ -32,7 +32,7 @@ El documento replica esta estructura:
 ```text
 DIRECCIÓN DE RELACIONES INSTITUCIONALES        NOTA INTERNA
 
-Apuntes políticos #X
+Insumos para apuntes políticos #X
 Fecha
 
 [Párrafo inicial de lectura política]

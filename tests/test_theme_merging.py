@@ -54,7 +54,7 @@ class ThemeMergingTests(unittest.TestCase):
 
     def test_final_report_merges_duplicate_headlines_from_llm(self):
         payload = {
-            "title": "Apuntes políticos #8",
+            "title": "Insumos para apuntes políticos #8",
             "date_label": "6 de Mayo de 2026",
             "lead": "La quincena estuvo marcada por una mayor disputa política y legislativa.",
             "developments": [

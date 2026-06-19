@@ -18,7 +18,7 @@ from scripts.google_docs_builder import create_local_docx
 class DocsBuilderTests(unittest.TestCase):
     def _report(self):
         return {
-            "title": "Apuntes políticos #7",
+            "title": "Insumos para apuntes políticos #7",
             "date_label": "1 de Mayo de 2026",
             "lead": "El oficialismo conserva capacidad de gestión del proceso político.",
             "developments": [
@@ -55,7 +55,7 @@ class DocsBuilderTests(unittest.TestCase):
             full_text = "\n".join(p.text for p in doc.paragraphs)
             table_text = "\n".join(cell.text for table in doc.tables for row in table.rows for cell in row.cells)
             combined = full_text + "\n" + table_text
-            self.assertIn("Apuntes políticos #7", combined)
+            self.assertIn("Insumos para apuntes políticos #7", combined)
             self.assertIn("NOTA INTERNA", combined)
             self.assertIn("Claves prospectivas", combined)
             self.assertIn("Gracias!", combined)

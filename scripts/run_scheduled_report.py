@@ -61,7 +61,7 @@ def run(args: argparse.Namespace) -> dict:
     ensure_project_dirs()
     period, start, end = _period(args.period_days, args.timezone, args.period_mode)
     run_stamp = end.strftime("%Y%m%d_%H%M")
-    report_id = f"apuntes_politicos_{run_stamp}"
+    report_id = f"insumos_para_aportes_politicos{run_stamp}"
     out_dir = REPORTS_OUTPUT_DIR / report_id
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -154,7 +154,7 @@ def _preview_text(report: dict) -> str:
     lines = [
         "DIRECCIÓN DE RELACIONES INSTITUCIONALES        NOTA INTERNA",
         "",
-        report.get("title", "Apuntes políticos"),
+        report.get("title", "Insumos para aportes políticos"),
         report.get("date_label", ""),
         "",
         report.get("lead", ""),
